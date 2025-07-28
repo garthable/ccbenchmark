@@ -4,66 +4,9 @@ import argparse
 from pathlib import Path
 import re
 import shutil
-import tkinter as tk
-from tkinter import ttk
-import tkinter.font as tkFont
 import os
-
-def create_table_gui(benchmark_names, iteration_names, matrix, frame, use_cpu_time):
-    tree = ttk.Treeview(frame)
-
-    columns = [''] + benchmark_names
-    tree['columns'] = columns
-    tree['show'] = 'headings'
-
-    font = tkFont.Font()
-
-    for iter_name, row in zip(iteration_names, matrix):
-        formatted_row = [f'{v[0][use_cpu_time]:.2f} {v[1]}' if isinstance(v, tuple) else "N/A" for v in row]
-        tree.insert('', 'end', values=[iter_name] + formatted_row)
-
-    for col in columns:
-        max_width = font.measure(col)
-        tree.heading(col, text=col)
-        for item in tree.get_children():
-            text = tree.set(item, col)
-            max_width = max(max_width, font.measure(text))
-        max_width += 20
-        tree.column(col, minwidth=max_width, width=max_width, stretch=False, anchor='center')
-
-    horizontal_scrollbar = ttk.Scrollbar(frame, command=tree.xview, orient='horizontal')
-    horizontal_scrollbar.pack(side='bottom', fill='x')
-
-    verticle_scrollbar = ttk.Scrollbar(frame, command=tree.yview, orient='vertical')
-    verticle_scrollbar.pack(side='right', fill='y')
-
-    tree.configure(yscrollcommand=verticle_scrollbar.set, xscrollcommand=horizontal_scrollbar.set)
-
-    tree.pack(side='left', expand=False, fill='both')
-    return tree
-
-def show_gui(benchmark_names, iteration_names, matrix):
-    root = tk.Tk()
-    root.title("Benchmark Results")
-
-    notebook = ttk.Notebook(root)
-    notebook.pack(expand=True, fill='both')
-
-    # for benchmark_name in benchmark_names:
-    #     tab = ttk.Frame(notebook)
-    #     notebook.add(tab, text=benchmark_name)
-    #     create_table_gui()
-
-    # Create a frame to serve as the tab content container
-    real_time_table_tab = ttk.Frame(notebook)
-    notebook.add(real_time_table_tab, text="Real Time (Table)")
-    cpu_time_table_tab = ttk.Frame(notebook)
-    notebook.add(cpu_time_table_tab, text="Cpu Time (Table)")
-
-    create_table_gui(benchmark_names, iteration_names, matrix, real_time_table_tab, use_cpu_time=False)
-    create_table_gui(benchmark_names, iteration_names, matrix, cpu_time_table_tab, use_cpu_time=True)
-
-    root.mainloop()
+from benchmark_helpers.gui import show_gui
+from benchmark_helpers.benchmark_data import *
 
 def get_latest_mtime_in_dir(path: Path) -> float:
     mtimes = [f.stat().st_mtime for f in path.rglob('*') if f.is_file()]
@@ -72,46 +15,44 @@ def get_latest_mtime_in_dir(path: Path) -> float:
 def init_benchmark_names(benchmark_re_name, benchmark_result_folder) -> list:
     benchmark_re = re.compile(benchmark_re_name)
     current_benchmark_folder = benchmark_result_folder / 'recent'
+
+    benchmark_names_set = set()
+
     benchmark_names = []
+    benchmark_name_to_index = {}
+
     for json_file_path in current_benchmark_folder.iterdir():
         with open(json_file_path, 'r') as json_file:
             json_loaded = json.load(json_file)
             for benchmark in json_loaded['benchmarks']:
-                name = benchmark['name']
-                if not benchmark_re.search(name):
+                name = benchmark['run_name']
+                if not benchmark_re.search(name) or name in benchmark_names_set:
                     continue
+                benchmark_names_set.add(name)
                 benchmark_names.append(name)
-    return benchmark_names
+                benchmark_name_to_index[name] = len(benchmark_names) - 1
+
+    return benchmark_names, benchmark_name_to_index
 
 def compare_benchmarks(benchmark_folder: Path, benchmark_re_name: str):
     benchmark_result_folder = benchmark_folder.parent / 'benchmark_results'
-
-    benchmark_names = init_benchmark_names(benchmark_re_name, benchmark_result_folder)
 
     iteration_paths_sorted = sorted(
         (f for f in benchmark_result_folder.iterdir() if f.is_dir()),
         key=get_latest_mtime_in_dir
     )
 
-    iteration_names = [None]*len(iteration_paths_sorted)
-    matrix = [[None] * len(benchmark_names) for _ in range(len(iteration_paths_sorted))]
+    iteration_names = [path.name for path in iteration_paths_sorted]
+    benchmark_names, benchmark_name_to_index = init_benchmark_names(benchmark_re_name, benchmark_result_folder)
+    benchmark_data = BenchmarkData(benchmark_names, iteration_names)
 
-    for i, iteration_path in enumerate(iteration_paths_sorted):
-        iteration_names[i] = iteration_path.name
-
+    for iteration_index, iteration_path in enumerate(iteration_paths_sorted):
         for json_file_path in iteration_path.iterdir():
             with open(json_file_path, 'r') as json_file:
                 json_loaded = json.load(json_file)
-                for benchmark in json_loaded['benchmarks']:
-                    name = benchmark['name']
-                    try:
-                        j = benchmark_names.index(name)
-                        matrix[i][j] = ((benchmark['real_time'], benchmark['cpu_time']), benchmark['time_unit'])
-                    
-                    except ValueError:
-                        continue
-
-    show_gui(benchmark_names, iteration_names, matrix)
+                benchmark_data.add_json_file(iteration_index, json_loaded, benchmark_name_to_index)
+    benchmark_data.compute_delta()
+    show_gui(benchmark_data)
 
 def init_dir(benchmark_path: Path, tag: str):
     dir = benchmark_path.parent

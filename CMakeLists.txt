@@ -46,6 +46,7 @@ function(add_benchmark TARGET_NAME)
 endfunction()
 
 set(BENCHMARK_PY ${CMAKE_CURRENT_SOURCE_DIR}/benchmark.py)
+set(BENCHMARK_HELPERS_PY ${CMAKE_CURRENT_SOURCE_DIR}/benchmark_helpers)
 
 function(end_add_benchmark)
     cmake_parse_arguments(BM
@@ -60,6 +61,7 @@ function(end_add_benchmark)
     endif()
 
     configure_file(${BENCHMARK_PY} ${BM_WORKING_DIRECTORY} COPYONLY)
+    file(COPY ${BENCHMARK_HELPERS_PY} DESTINATION ${BM_WORKING_DIRECTORY})
 
     file(GENERATE
         OUTPUT "${BM_WORKING_DIRECTORY}/benchmarks.txt"
