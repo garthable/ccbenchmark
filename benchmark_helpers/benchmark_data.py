@@ -41,31 +41,20 @@ class BenchmarkEntry:
             time_delta = self.time.time_delta[time_type]
             time_unit = self.time.time_unit
             row.append(f'{time:.2f} {time_unit}' if time is not None else 'N/A')
-            row.append(f'{time_delta:.2f}%' if time_delta is not None else 'N/A')
-            return row
+            row.append(f'{time_delta:.2f} %' if time_delta is not None else 'N/A')
 
-        mean = self.mean_time.time[time_type]
-        mean_delta = self.mean_time.time_delta[time_type]
-        time_unit = self.mean_time.time_unit
-        row.append(f'{mean:.2f} {time_unit}' if mean is not None else 'N/A')
-        row.append(f'{mean_delta:.2f}%' if mean_delta is not None else 'N/A')
-
-        median = self.median_time.time[time_type]
-        median_delta = self.median_time.time_delta[time_type]
-        time_unit = self.median_time.time_unit
-        row.append(f'{median:.2f} {time_unit}' if median is not None else 'N/A')
-        row.append(f'{median_delta:.2f}%' if median_delta is not None else 'N/A')
-
-        stddev = self.stddev_time.time[time_type]
-        stddev_delta = self.stddev_time.time_delta[time_type]
-        time_unit = self.stddev_time.time_unit
-        row.append(f'{stddev:.2f} {time_unit}' if stddev is not None else 'N/A')
-        row.append(f'{stddev_delta:.2f}%' if stddev_delta is not None else 'N/A')
+        times = [self.mean_time, self.median_time, self.stddev_time]
+        for time in times:
+            value = time.time[time_type]
+            delta = time.time_delta[time_type]
+            time_unit = time.time_unit
+            row.append(f'{value:.2f} {time_unit}' if value is not None else 'N/A')
+            row.append(f'{delta:.2f} %' if delta is not None else 'N/A')
 
         cv = self.cv_time.time[time_type]
         cv_delta = self.cv_time.time_delta[time_type]
-        row.append(f'{cv:.2f}%' if cv is not None else 'N/A')
-        row.append(f'{cv_delta:.2f}%' if cv_delta is not None else 'N/A')
+        row.append(f'{cv:.2f} %' if cv is not None else 'N/A')
+        row.append(f'{cv_delta:.2f} %' if cv_delta is not None else 'N/A')
 
         return row
 
