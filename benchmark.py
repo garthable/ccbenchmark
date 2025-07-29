@@ -15,6 +15,15 @@ import sys
 import argparse
 from pathlib import Path
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+try:
+    from benchmark_helpers.benchmark_helpers import run_benchmarks, compare_benchmarks
+except ImportError as e:
+    logger.critical(f"Failed to import benchmark_helpers: {e}")
+    sys.exit(99)
+
 RUN_ACTIONS = {'run', 'r', 'run_and_compare', 'rac'}
 COMPARE_ACTIONS = {'compare', 'c', 'run_and_compare', 'rac'}
 BENCHMARK_FILE = 'benchmarks.txt'
@@ -28,15 +37,6 @@ class ExitResult(IntEnum):
 
     def __str__(self):
         return self.name
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-try:
-    from benchmark_helpers.benchmark_helpers import run_benchmarks, compare_benchmarks
-except ImportError as e:
-    logger.critical(f"Failed to import benchmark_helpers: {e}")
-    sys.exit(99)
 
 def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> ExitResult:
     """Entry point for the benchmark CLI. Handles argument parsing and action dispatch."""
