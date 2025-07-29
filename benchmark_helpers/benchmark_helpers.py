@@ -1,18 +1,34 @@
 import json
+import sys
 import subprocess
 import re
 import shutil
-import os
-from benchmark_helpers.gui import show_gui
 from pathlib import Path
-from benchmark_helpers.benchmark_data import *
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+IMPORT_FAILURE_EXIT_CODE = 99
+
+try:
+    from benchmark_helpers.benchmark_data import BenchmarkData
+except ImportError as e:
+    logger.critical(f"Failed to import benchmark_data: {e}")
+    sys.exit(IMPORT_FAILURE_EXIT_CODE)
+try:
+    from benchmark_helpers.gui import show_gui
+except ImportError as e:
+    logger.critical(f"Failed to import gui: {e}")
+    sys.exit(IMPORT_FAILURE_EXIT_CODE)
 
 def get_latest_mtime_in_dir(path: Path) -> float:
+    """Gets time of modification in directory"""
     mtimes = [f.stat().st_mtime for f in path.rglob('*') if f.is_file()]
     return max(mtimes, default=path.stat().st_mtime)
 
-def init_benchmark_names(benchmark_re_name, benchmark_result_folder) -> list:
-    benchmark_re = re.compile(benchmark_re_name)
+def init_benchmark_names(pattern: re.Pattern, benchmark_result_folder: Path) -> tuple[list[str], dict[str, int]]:
+    """Gets names of benchmarks from recent folder"""
     current_benchmark_folder = benchmark_result_folder / 'recent'
 
     benchmark_names_set = set()
@@ -21,11 +37,25 @@ def init_benchmark_names(benchmark_re_name, benchmark_result_folder) -> list:
     benchmark_name_to_index = {}
 
     for json_file_path in current_benchmark_folder.iterdir():
-        with open(json_file_path, 'r') as json_file:
+        if not json_file_path.suffix == '.json':
+            continue
+        if not json_file_path.is_file():
+            logger.warning(f"Skipping non-file: {json_file_path}")
+            continue
+        with open(json_file_path, 'r', encoding='utf-8') as json_file:
             json_loaded = json.load(json_file)
-            for benchmark in json_loaded['benchmarks']:
-                name = benchmark['run_name']
-                if not benchmark_re.search(name) or name in benchmark_names_set:
+            try:
+                benchmarks = json_loaded['benchmarks']
+            except KeyError:
+                logger.warning(f"Missing 'benchmarks' key in {json_file_path}")
+                continue
+            for benchmark in benchmarks:
+                try:
+                    name = benchmark['run_name']
+                except KeyError:
+                    logger.warning(f"Missing 'run_name' key in {json_file_path}")
+                    continue
+                if not pattern.search(name) or name in benchmark_names_set:
                     continue
                 benchmark_names_set.add(name)
                 benchmark_names.append(name)
@@ -33,7 +63,8 @@ def init_benchmark_names(benchmark_re_name, benchmark_result_folder) -> list:
 
     return benchmark_names, benchmark_name_to_index
 
-def compare_benchmarks(benchmark_folder: Path, benchmark_re_name: str):
+def compare_benchmarks(benchmark_folder: Path, pattern: re.Pattern) -> None:
+    """Compares benchmark results, launches gui"""
     benchmark_result_folder = benchmark_folder.parent / 'benchmark_results'
 
     iteration_paths_sorted = sorted(
@@ -42,51 +73,73 @@ def compare_benchmarks(benchmark_folder: Path, benchmark_re_name: str):
     )
 
     iteration_names = [path.name for path in iteration_paths_sorted]
-    benchmark_names, benchmark_name_to_index = init_benchmark_names(benchmark_re_name, benchmark_result_folder)
+    benchmark_names, benchmark_name_to_index = init_benchmark_names(pattern, benchmark_result_folder)
     benchmark_data = BenchmarkData(benchmark_names, iteration_names)
 
     for iteration_index, iteration_path in enumerate(iteration_paths_sorted):
         for json_file_path in iteration_path.iterdir():
-            with open(json_file_path, 'r') as json_file:
-                json_loaded = json.load(json_file)
+            with open(json_file_path, 'r', encoding='utf-8') as json_file:
+                try:
+                    json_loaded = json.load(json_file)
+                except json.JSONDecodeError as e:
+                    logger.warning(f'Invalid JSON in {json_file_path}: {e}')
+                    continue
                 benchmark_data.add_json_file(iteration_index, json_loaded, benchmark_name_to_index)
     benchmark_data.compute_delta()
     show_gui(benchmark_data)
 
-def init_dir(benchmark_path: Path, tag: str):
-    dir = benchmark_path.parent
-    output_dir = dir / 'benchmark_results'
+def init_dir(benchmark_path: Path, tag: str) -> Path:
+    """Initializes directory, prevents errors from directory not existing"""
+    output_dir = benchmark_path.parent / 'benchmark_results' / tag
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        logger.debug(f'Failed to create directory {output_dir}: {e}')
 
-    result = subprocess.call(['mkdir', output_dir], stdin=None, stdout=None, stderr=None, shell=False)
-    if result != 0:
-        print(f'Failed to create {f'benchmark_results/'}')
-
-    output_dir = output_dir / tag
-    result = subprocess.call(['mkdir', output_dir], stdin=None, stdout=None, stderr=None, shell=False)
-    if result != 0:
-        print(f'Failed to create {f'benchmark_results/{tag}/'}')
     return output_dir
 
-def run_benchmarks(benchmark_path: Path, tag: str):
+def run_single_benchmark(binary_path: Path, output_path: Path) -> int:
+    """Runs a single benchmark binary and writes output to the given path."""
+    cmd = [
+        binary_path, 
+        f'--benchmark_out={output_path}', 
+        '--benchmark_out_format=json', 
+        '--benchmark_report_aggregates_only=false'
+    ]
+
+    return subprocess.call(cmd, stdin=None, stdout=None, stderr=None, shell=False)
+    
+def run_benchmarks(benchmark_path: Path, tag: str) -> None:
+    """Runs all benchmarks in benchmark.txt"""
     output_dir = init_dir(benchmark_path, tag)
     if tag != 'recent':
         recent_dir = init_dir(benchmark_path, 'recent')
 
-    with open(benchmark_path, 'r') as benchmark_file:
+    with open(benchmark_path, 'r', encoding='utf-8') as benchmark_file:
         for line in benchmark_file:
             line = line.strip()
-            benchmark_name = Path(line).name
-            result = subprocess.call([
-                line, 
-                f'--benchmark_out={output_dir}/{benchmark_name}.json', 
-                '--benchmark_out_format=json', 
-                '--benchmark_report_aggregates_only=false'], 
-                stdin=None, stdout=None, stderr=None, shell=False)
+            if not line:
+                logger.warning("Skipping empty line in benchmark file.")
+                continue
+            binary_path = Path(line)
+            benchmark_name = binary_path.name
+
+            if not binary_path.is_file():
+                logger.warning(f"Benchmark binary not found: {binary_path}")
+                continue
+
+            logger.info(f'Running benchmark: {benchmark_name}')
+
+            result = run_single_benchmark(binary_path, output_dir / f'{benchmark_name}.json')
+            
             if result != 0:
-                print(f'{benchmark_name}: Exited with code: {result}')
+                logger.warning(f'{benchmark_name}: Exited with code: {result}')
             else:
-                print(f'{benchmark_name}: OK')
+                logger.info(f'{benchmark_name}: OK')
             
             if tag != 'recent':
-                shutil.copy(f'{output_dir}/{benchmark_name}.json', f'{recent_dir}')
-                os.utime(f'{recent_dir}/{benchmark_name}.json', None)
+                dest_path = recent_dir / f'{benchmark_name}.json'
+                shutil.copy(output_dir / f'{benchmark_name}.json', dest_path)
+                # Updates mtime of file for freshness sorting.
+                dest_path.touch()
+                logger.debug(f"Copied result to recent: {dest_path}")
