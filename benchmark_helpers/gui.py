@@ -1,8 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
 import tkinter.font as tkFont
-from tkinter import filedialog
-import csv
 from benchmark_helpers.benchmark_data import BenchmarkData, BenchmarkColumn, TimeType
 import logging
 
@@ -60,6 +58,7 @@ def show_gui(benchmark_data: BenchmarkData):
     root.title("Benchmark Results")
 
     notebook = ttk.Notebook(root)
+    notebook.enable_traversal()
     notebook.pack(expand=True, fill='both')
 
     for benchmark_col, benchmark_name in zip(benchmark_data.matrix, benchmark_data.benchmark_names):
