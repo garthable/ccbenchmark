@@ -63,6 +63,11 @@ function(end_add_benchmark)
     configure_file(${BENCHMARK_PY} ${BM_WORKING_DIRECTORY} COPYONLY)
     file(COPY ${BENCHMARK_HELPERS_PY} DESTINATION ${BM_WORKING_DIRECTORY})
 
+    file(WRITE "${CMAKE_BINARY_DIR}/benchmark_setup.bash" 
+    "#!/bin/bash \
+    \nalias cbenchmark='python3 ${BM_WORKING_DIRECTORY}/benchmark.py -w ${BM_WORKING_DIRECTORY}'
+    ")
+
     file(GENERATE
         OUTPUT "${BM_WORKING_DIRECTORY}/benchmarks.txt"
         CONTENT "${_BENCHMARK_ENTRIES}"
