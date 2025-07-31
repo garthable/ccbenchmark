@@ -2,6 +2,7 @@ from enum import IntEnum
 from dataclasses import dataclass
 from typing import Optional
 import logging
+from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -110,9 +111,10 @@ class BenchmarkEntry:
         return row
 
 class BenchmarkColumn:
-    __slots__ = ("data", "aggregated")
-    def __init__(self, aggregated: bool = False):
+    __slots__ = ("data", "benchmark_bin_path", "aggregated")
+    def __init__(self, benchmark_bin_path: Optional[Path] = None, aggregated: bool = False):
         self.data: list[BenchmarkEntry] = []
+        self.benchmark_bin_path: Optional[Path] = benchmark_bin_path
         self.aggregated = aggregated
 
     def __iter__(self):
@@ -142,54 +144,51 @@ class BenchmarkData:
             for name in iteration_names:
                 self.matrix[i].append(BenchmarkEntry(iteration=name))
     
-    def add_json_file(self, iteration_index: int, json_file: dict, benchmark_name_to_index: dict[str, int]) -> None:
+    def add_json_file(self, iteration_index: int, json_file: dict, benchmark_name_to_index: dict[tuple[Path, str], int]) -> None:
         """Adds json file to BenchmarkData"""
         try:
             benchmarks = json_file['benchmarks']
         except KeyError:
             logger.warning(f"Missing 'benchmarks' in JSON file. Failed to add JSON file.")
             return
+        try:
+            benchmark_bin_line = json_file['context']['executable']
+        except KeyError:
+            logger.warning(f"Missing '[context][executable]' in JSON file. Failed to add JSON file.")
+            return
+        
+        benchmark_bin_path = Path(benchmark_bin_line)
 
         for benchmark in benchmarks:
-            try:
-                name = benchmark['run_name']
-            except KeyError:
-                logger.warning(f"Missing 'run_name' in JSON file. Failed to add entry.")
-                continue
+            class SkipBenchmark(Exception):
+                pass
 
-            index = benchmark_name_to_index.get(name)
-            if index is None:
-                logger.debug(f"{name} not found in benchmark_name_to_index")
-                continue
+            def get_value(key: str) -> any:
+                try:
+                    value = benchmark[key]
+                except KeyError:
+                    logger.warning(f"Missing '{key}' in JSON file. Failed to add entry.")
+                    raise SkipBenchmark()
+                return value
             
             try:
-                real_time = benchmark['real_time']
-            except KeyError:
-                logger.warning(f"Missing 'real_time' in JSON file. Failed to add entry.")
+                name = get_value('run_name')
+                real_time = get_value('real_time')
+                cpu_time = get_value('cpu_time')
+                time_unit = get_value('time_unit')
+                repetitions = get_value('repetitions')
+                run_type = get_value('run_type')
+            except SkipBenchmark:
                 continue
-            try:
-                cpu_time = benchmark['cpu_time']
-            except KeyError:
-                logger.warning(f"Missing 'cpu_time' in JSON file. Failed to add entry.")
-                continue
-            try:
-                time_unit = benchmark['time_unit']
-            except KeyError:
-                logger.warning(f"Missing 'time_unit' in JSON file. Failed to add entry.")
-                continue
-            try:
-                repetitions = benchmark['repetitions']
-            except KeyError:
-                logger.warning(f"Missing 'repetitions' in JSON file. Failed to add entry.")
-                continue
-            try:
-                run_type = benchmark['run_type']
-            except KeyError:
-                logger.warning(f"Missing 'run_type' in JSON file. Failed to add entry.")
+
+            index = benchmark_name_to_index.get((benchmark_bin_path, name))
+            if index is None:
+                logger.debug(f"{name} not found in benchmark_name_to_index")
                 continue
 
             time = BenchmarkTime(real_time=real_time, cpu_time=cpu_time, time_unit=time_unit)
             iteration_name = self.iteration_names[iteration_index]
+            self.matrix[index].benchmark_bin_path = benchmark_bin_path
 
             if repetitions == 1 and run_type == 'iteration':
                 self.matrix[index].aggregated = False
@@ -245,4 +244,23 @@ class BenchmarkData:
 
                 prev_times = curr_times
 
-        
+    def strip_common_paths(self) -> None:
+        paths = [col.benchmark_bin_path for col in self.matrix]
+        max_iterations = min([len(path.parts) for path in paths])
+
+        for _ in range(max_iterations):
+            common_part = None
+            for path in paths:
+                assert(len(path.parts) != 0)
+                part = path.parts[0]
+                if common_part is None:
+                    common_part = part
+                elif common_part != part:
+                    for i in range(len(self.matrix)):
+                        self.matrix[i].benchmark_bin_path = paths[i]
+                    return
+
+            for j in range(len(paths)):
+                parts = paths[j].parts[1:]
+                paths[j] = Path(*parts)
+        raise Exception("Reached maximum path part depth!")  

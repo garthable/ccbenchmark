@@ -27,7 +27,7 @@ def get_latest_mtime_in_dir(path: Path) -> float:
     mtimes = [f.stat().st_mtime for f in path.rglob('*') if f.is_file()]
     return max(mtimes, default=path.stat().st_mtime)
 
-def init_benchmark_names(pattern: re.Pattern, benchmark_result_folder: Path) -> tuple[list[str], dict[str, int]]:
+def init_benchmark_names(pattern: re.Pattern, benchmark_result_folder: Path) -> tuple[list[str], dict[tuple[Path, str], int]]:
     """Gets names of benchmarks from recent folder"""
     current_benchmark_folder = benchmark_result_folder / 'recent'
 
@@ -49,6 +49,13 @@ def init_benchmark_names(pattern: re.Pattern, benchmark_result_folder: Path) -> 
             except KeyError:
                 logger.warning(f"Missing 'benchmarks' key in {json_file_path}")
                 continue
+            try:
+                benchmark_bin_line = json_loaded['context']['executable']
+            except KeyError:
+                logger.warning(f"Missing '[context][executable]' in JSON file. Failed to add JSON file.")
+                return
+            
+            benchmark_bin_path = Path(benchmark_bin_line)
             for benchmark in benchmarks:
                 try:
                     name = benchmark['run_name']
@@ -59,7 +66,7 @@ def init_benchmark_names(pattern: re.Pattern, benchmark_result_folder: Path) -> 
                     continue
                 benchmark_names_set.add(name)
                 benchmark_names.append(name)
-                benchmark_name_to_index[name] = len(benchmark_names) - 1
+                benchmark_name_to_index[(benchmark_bin_path, name)] = len(benchmark_names) - 1
 
     return benchmark_names, benchmark_name_to_index
 
@@ -86,6 +93,7 @@ def compare_benchmarks(benchmark_folder: Path, pattern: re.Pattern) -> None:
                     continue
                 benchmark_data.add_json_file(iteration_index, json_loaded, benchmark_name_to_index)
     benchmark_data.compute_delta()
+    benchmark_data.strip_common_paths()
     show_gui(benchmark_data)
 
 def init_dir(benchmark_path: Path, tag: str) -> Path:
