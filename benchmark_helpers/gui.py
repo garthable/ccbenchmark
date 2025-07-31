@@ -50,12 +50,12 @@ def create_benchmark_table(parent, benchmark_data: BenchmarkData, is_aggregated:
         tree.column(col, minwidth=max_width, width=max_width, stretch=False, anchor='e')
 
     horizontal_scrollbar = ttk.Scrollbar(parent, command=tree.xview, orient='horizontal')
-    horizontal_scrollbar.pack(side='bottom', fill='x')
+    horizontal_scrollbar.grid(row=1, column=0, sticky='ew')
 
     vertical_scrollbar = ttk.Scrollbar(parent, command=tree.yview, orient='vertical')
-    vertical_scrollbar.pack(side='right', fill='y')
+    vertical_scrollbar.grid(row=0, column=1, sticky='ns')
 
-    tree.pack(side='left', expand=True, fill='both')
+    tree.grid(row=0, column=0, sticky='nsew')
 
     tree.configure(yscrollcommand=vertical_scrollbar.set, xscrollcommand=horizontal_scrollbar.set)
     return tree
@@ -65,9 +65,22 @@ def show_gui(benchmark_data: BenchmarkData):
     root = tk.Tk()
     root.minsize(600, 400)
     root.title("Benchmark Results")
+
+    horizontal_split = ttk.PanedWindow(root, orient='horizontal')
+    horizontal_split.pack(fill='both', expand=True)
+
+    left_frame = ttk.Frame(horizontal_split, width=200)
+    horizontal_split.add(left_frame, weight=1)
+
+    right_frame = ttk.Frame(horizontal_split)
+    horizontal_split.add(right_frame, weight=4)
+
+    right_frame.rowconfigure(0, weight=1)
+    right_frame.columnconfigure(0, weight=1)
+
         
-    hierarchy = create_hierarchy(benchmark_data, root)
-    table = create_benchmark_table(root, benchmark_data, True)
+    hierarchy = create_hierarchy(benchmark_data, left_frame)
+    table = create_benchmark_table(right_frame, benchmark_data, True)
 
     selected_index = 0
 

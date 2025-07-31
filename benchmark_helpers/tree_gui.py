@@ -15,10 +15,14 @@ except ImportError as e:
     logger.critical(f"Failed to import benchmark_data: {e}")
     sys.exit(IMPORT_FAILURE_EXIT_CODE)
 
+import tkinter.font as tkFont
+
 def create_hierarchy(benchmark_data: BenchmarkData, parent: ttk.Frame) -> ttk.Treeview:
     created_paths = set()
 
     hierarchy = ttk.Treeview(parent)
+
+    hierarchy.column("#0", minwidth=500, width=500, stretch=True)
 
     for i, (col, benchmark_name) in enumerate(zip(benchmark_data.matrix, benchmark_data.benchmark_names)):
         prev = ''
@@ -33,11 +37,20 @@ def create_hierarchy(benchmark_data: BenchmarkData, parent: ttk.Frame) -> ttk.Tr
             hierarchy.insert(str(prev), len(created_paths), str(segment), text=benchmark_name, values=(i))
             created_paths.add(segment)
 
-    hierarchy.pack(fill="both", expand=True)
+    hierarchy.update_idletasks()
+    hierarchy.event_generate("<Configure>")
 
-    scrollbar = ttk.Scrollbar(hierarchy, command=hierarchy.xview, orient='vertical')
-    scrollbar.pack(side='right', fill='y')
+    hierarchy.grid(row=0, column=1, sticky='nsew')
 
-    hierarchy.configure(yscrollcommand=scrollbar.set)
+    v_scrollbar = ttk.Scrollbar(parent, command=hierarchy.yview, orient='vertical')
+    v_scrollbar.grid(row=0, column=0, sticky='ns')
+
+    h_scrollbar = ttk.Scrollbar(parent, command=hierarchy.xview, orient='horizontal')
+    h_scrollbar.grid(row=1, column=1, sticky='ew')
+
+    hierarchy.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+
+    parent.columnconfigure(1, weight=1)
+    parent.rowconfigure(0, weight=1)
 
     return hierarchy
