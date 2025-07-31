@@ -1,11 +1,20 @@
 import tkinter as tk
 from tkinter import ttk
 import tkinter.font as tkFont
-from benchmark_helpers.benchmark_data import BenchmarkData, BenchmarkColumn, TimeType
 import logging
+import sys
+
+IMPORT_FAILURE_EXIT_CODE = 99
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+try:
+    from benchmark_helpers.tree_gui import create_hierarchy
+    from benchmark_helpers.benchmark_data import BenchmarkData, BenchmarkColumn, TimeType
+except ImportError as e:
+    logger.critical(f"Failed to import benchmark_data: {e}")
+    sys.exit(IMPORT_FAILURE_EXIT_CODE)
 
 def get_columns(is_aggregated: bool) -> list[str]:
     if not is_aggregated:
@@ -56,6 +65,22 @@ def show_gui(benchmark_data: BenchmarkData):
     root = tk.Tk()
     root.minsize(600, 400)
     root.title("Benchmark Results")
+        
+    hierarchy = create_hierarchy(benchmark_data, root)
+
+    def on_select(event):
+        print('hi')
+        selected_element = hierarchy.selection()
+        if not selected_element:
+            return
+        element_id = selected_element[0]
+        values = hierarchy.item(element_id, "values")
+        if not values:
+            return
+        col_id = int(values[0])
+        print(benchmark_data.matrix[col_id])
+
+    hierarchy.bind('<<TreeviewSelect>>', on_select)
 
     notebook = ttk.Notebook(root)
     notebook.enable_traversal()
