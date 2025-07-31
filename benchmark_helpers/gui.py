@@ -24,10 +24,10 @@ def get_columns(is_aggregated: bool) -> list[str]:
              'Standard Deviation Delta (%)', 'Coefficient of Variation (%)', 
              'Coefficient of Variation Delta (%)']
 
-def create_benchmark_table(frame, benchmark_col: BenchmarkColumn, time_type=TimeType.REAL):
+def create_benchmark_table(parent, benchmark_data: BenchmarkData, is_aggregated: bool):
     """Generates data table"""
-    tree = ttk.Treeview(frame)
-    columns = get_columns(benchmark_col.aggregated)
+    tree = ttk.Treeview(parent)
+    columns = get_columns(is_aggregated)
     
     tree['columns'] = columns
     tree['show'] = 'headings'
@@ -36,9 +36,9 @@ def create_benchmark_table(frame, benchmark_col: BenchmarkColumn, time_type=Time
     
     tree.tag_configure('evenrow', background='#f0f0ff')
     tree.tag_configure('oddrow', background='white')
-    for i, benchmark_entry in enumerate(benchmark_col):
+    for i in range(len(benchmark_data.iteration_names)):
         tag = 'evenrow' if i % 2 == 0 else 'oddrow'
-        tree.insert('', 'end', values=benchmark_entry.get_row(benchmark_col.aggregated, time_type), tags=(tag,))
+        tree.insert('', 'end', values=['' for i in range(len(columns))], tags=(tag,))
 
     for col in columns:
         max_width = font.measure(col)
@@ -49,15 +49,15 @@ def create_benchmark_table(frame, benchmark_col: BenchmarkColumn, time_type=Time
         max_width += 20
         tree.column(col, minwidth=max_width, width=max_width, stretch=False, anchor='e')
 
-    horizontal_scrollbar = ttk.Scrollbar(frame, command=tree.xview, orient='horizontal')
+    horizontal_scrollbar = ttk.Scrollbar(parent, command=tree.xview, orient='horizontal')
     horizontal_scrollbar.pack(side='bottom', fill='x')
 
-    vertical_scrollbar = ttk.Scrollbar(frame, command=tree.yview, orient='vertical')
+    vertical_scrollbar = ttk.Scrollbar(parent, command=tree.yview, orient='vertical')
     vertical_scrollbar.pack(side='right', fill='y')
 
-    tree.configure(yscrollcommand=vertical_scrollbar.set, xscrollcommand=horizontal_scrollbar.set)
-
     tree.pack(side='left', expand=True, fill='both')
+
+    tree.configure(yscrollcommand=vertical_scrollbar.set, xscrollcommand=horizontal_scrollbar.set)
     return tree
 
 def show_gui(benchmark_data: BenchmarkData):
@@ -67,9 +67,12 @@ def show_gui(benchmark_data: BenchmarkData):
     root.title("Benchmark Results")
         
     hierarchy = create_hierarchy(benchmark_data, root)
+    table = create_benchmark_table(root, benchmark_data, True)
+
+    selected_index = 0
 
     def on_select(event):
-        print('hi')
+        nonlocal selected_index
         selected_element = hierarchy.selection()
         if not selected_element:
             return
@@ -77,33 +80,30 @@ def show_gui(benchmark_data: BenchmarkData):
         values = hierarchy.item(element_id, "values")
         if not values:
             return
-        col_id = int(values[0])
-        print(benchmark_data.matrix[col_id])
+        selected_index = int(values[0])
+        update_tables()
 
     hierarchy.bind('<<TreeviewSelect>>', on_select)
-
-    notebook = ttk.Notebook(root)
-    notebook.enable_traversal()
-    notebook.pack(expand=True, fill='both')
-
-    for benchmark_col, benchmark_name in zip(benchmark_data.matrix, benchmark_data.benchmark_names):
-        tab = ttk.Frame(notebook)
-        notebook.add(tab, text=benchmark_name)
-        create_benchmark_table(tab, benchmark_col)
 
     selected_time_type = tk.StringVar(value='REAL')
 
     def update_tables():
-        """Updates all benchmark tables with the selected time type."""
         time_type = TimeType[selected_time_type.get()]
-        for i, tab in enumerate(notebook.tabs()):
-            widget = notebook.nametowidget(tab)
-            tree = widget.winfo_children()[0]
+        benchmark_col = benchmark_data.matrix[selected_index]
 
-            benchmark_col = benchmark_data.matrix[i]
-            for row_id, benchmark_entry in zip(tree.get_children(), benchmark_col):
-                new_values = benchmark_entry.get_row(benchmark_col.aggregated, time_type)
-                tree.item(row_id, values=new_values)
+        headings = get_columns(benchmark_col.aggregated)
+        all_cols = table["columns"]
+
+        for i, col_id in enumerate(all_cols):
+            heading = headings[i] if i < len(headings) else ""
+            table.heading(col_id, text=heading)
+
+        for row_id, benchmark_entry in zip(table.get_children(), benchmark_col):
+            row_values = benchmark_entry.get_row(benchmark_col.aggregated, time_type)
+            padded = row_values + [""] * (len(all_cols) - len(row_values))
+            table.item(row_id, values=padded)
+
+    update_tables()
 
     radio_frame = ttk.Frame(root)
     ttk.Radiobutton(radio_frame, text="Real Time", variable=selected_time_type, value='REAL', command=update_tables).pack(side='left')
