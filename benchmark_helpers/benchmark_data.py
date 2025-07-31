@@ -94,6 +94,7 @@ class BenchmarkEntry:
             time_unit = self.time.time_unit
             row.append(f'{time:.2f} {time_unit}' if time is not None else 'N/A')
             row.append(f'{time_delta:.2f} %' if time_delta is not None else 'N/A')
+            return row
 
         aggregate_times = [self.mean_time, self.median_time, self.stddev_time]
         for time in aggregate_times:
