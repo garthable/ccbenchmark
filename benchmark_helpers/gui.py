@@ -12,9 +12,9 @@ def get_columns(selected_column_indices: list[int], benchmark_data: BenchmarkDat
         aggregated = aggregated or benchmark_data.matrix[index].aggregated
 
     if not aggregated:
-        columns = [['Iteration'], ['Time', 'Time Delta (%)']]
+        columns = [['Time', 'Time Delta (%)']]
     else:
-        columns = [['Iteration'], ['Mean Time', 'Mean Time Delta (%)'], 
+        columns = [['Mean Time', 'Mean Time Delta (%)'], 
                    ['Median Time', 'Median Time Delta (%)'], 
                    ['Standard Deviation', 'Standard Deviation Delta (%)'], 
                    ['Coefficient of Variation (%)', 'Coefficient of Variation Delta (%)']]

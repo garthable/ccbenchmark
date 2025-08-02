@@ -65,17 +65,15 @@ class BenchmarkTime:
         self.time_deltas[TimeType.CPU] = value
 
 class BenchmarkEntry:
-    __slots__ = ("iteration", "time", "mean_time", "median_time", "stddev_time", "cv_time")
+    __slots__ = ("time", "mean_time", "median_time", "stddev_time", "cv_time")
     def __init__(
         self, 
-        iteration: Optional[str] = None,
         time: Optional[BenchmarkTime] = None, 
         mean_time: Optional[BenchmarkTime] = None, 
         median_time: Optional[BenchmarkTime] = None,
         stddev_time: Optional[BenchmarkTime] = None,
         cv_time: Optional[BenchmarkTime] = None
     ):
-        self.iteration: Optional[str] = iteration
         self.time: BenchmarkTime = time or BenchmarkTime()
         self.mean_time: BenchmarkTime = mean_time or BenchmarkTime()
         self.median_time: BenchmarkTime = median_time or BenchmarkTime()
@@ -83,11 +81,11 @@ class BenchmarkEntry:
         self.cv_time: BenchmarkTime = cv_time or BenchmarkTime()
 
     def __repr__(self) -> str:
-        return f"BenchmarkEntry(iteration={self.iteration}, time={self.time}, mean_time={self.mean_time}, median_time={self.median_time}, stddev_time={self.stddev_time}, cv_time={self.cv_time})"
+        return f"BenchmarkEntry(time={self.time}, mean_time={self.mean_time}, median_time={self.median_time}, stddev_time={self.stddev_time}, cv_time={self.cv_time})"
     
     def get_row(self, is_aggregated: bool, time_type: TimeType) -> list[str]:
         """Gets BenchmarkEntry as a row of strings."""
-        row = [self.iteration]
+        row = []
         if not is_aggregated:
             time = self.time.times[time_type]
             time_delta = self.time.time_deltas[time_type]
@@ -142,8 +140,8 @@ class BenchmarkData:
 
         for i in range(len(benchmark_names)):
             self.matrix.append(BenchmarkColumn())
-            for name in iteration_names:
-                self.matrix[i].append(BenchmarkEntry(iteration=name))
+            for _ in iteration_names:
+                self.matrix[i].append(BenchmarkEntry())
     
     def add_json_file(self, iteration_index: int, json_file: dict, benchmark_name_to_index: dict[tuple[Path, str], int]) -> None:
         """Adds json file to BenchmarkData"""
@@ -193,14 +191,13 @@ class BenchmarkData:
 
             if repetitions == 1 and run_type == 'iteration':
                 self.matrix[index].aggregated = False
-                entry = BenchmarkEntry(iteration=iteration_name, time=time)
+                entry = BenchmarkEntry(time=time)
                 self.matrix[index][iteration_index] = entry
                 continue
 
             if run_type == 'aggregate':
                 self.matrix[index].aggregated = True
                 aggregate_name = benchmark['aggregate_name']
-                self.matrix[index][iteration_index].iteration = iteration_name
                 if aggregate_name == 'mean':
                     self.matrix[index][iteration_index].mean_time = time
                 elif aggregate_name == 'median':
