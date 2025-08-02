@@ -186,7 +186,6 @@ class BenchmarkData:
                 continue
 
             time = BenchmarkTime(real_time=real_time, cpu_time=cpu_time, time_unit=time_unit)
-            iteration_name = self.iteration_names[iteration_index]
             self.matrix[index].benchmark_bin_path = benchmark_bin_path
 
             if repetitions == 1 and run_type == 'iteration':
