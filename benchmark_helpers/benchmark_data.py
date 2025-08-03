@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Optional
 import logging
 from pathlib import Path
+from benchmark_helpers.util import time_to_str
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -83,15 +84,14 @@ class BenchmarkEntry:
     def __repr__(self) -> str:
         return f"BenchmarkEntry(time={self.time}, mean_time={self.mean_time}, median_time={self.median_time}, stddev_time={self.stddev_time}, cv_time={self.cv_time})"
     
-    def get_row(self, is_aggregated: bool, time_type: TimeType) -> list[str]:
+    def get_row(self, is_aggregated: bool, time_type: TimeType) -> list[list[str]]:
         """Gets BenchmarkEntry as a row of strings."""
         row = []
         if not is_aggregated:
             time = self.time.times[time_type]
             time_delta = self.time.time_deltas[time_type]
             time_unit = self.time.time_unit
-            row.append(f'{time:.2f} {time_unit}' if time is not None else 'N/A')
-            row.append(f'{time_delta:.2f} %' if time_delta is not None else 'N/A')
+            row.append([time_to_str(time, time_unit), time_to_str(time_delta, '%')])
             return row
 
         aggregate_times = [self.mean_time, self.median_time, self.stddev_time]
@@ -99,13 +99,11 @@ class BenchmarkEntry:
             value = time.times[time_type]
             delta = time.time_deltas[time_type]
             time_unit = time.time_unit
-            row.append(f'{value:.2f} {time_unit}' if value is not None else 'N/A')
-            row.append(f'{delta:.2f} %' if delta is not None else 'N/A')
+            row.append([time_to_str(value, time_unit), time_to_str(delta, '%')])
 
         cv = self.cv_time.times[time_type]
         cv_delta = self.cv_time.time_deltas[time_type]
-        row.append(f'{cv:.2f} %' if cv is not None else 'N/A')
-        row.append(f'{cv_delta:.2f} %' if cv_delta is not None else 'N/A')
+        row.append([time_to_str(cv, '%'), time_to_str(cv_delta, '%')])
 
         return row
 
