@@ -19,17 +19,17 @@ def get_columns(selected_column_indices: list[int], benchmark_data: BenchmarkDat
     if not aggregated:
         columns = [['Time', 'Time Δ (%)']]
     else:
-        columns = [['Mean Time', 'Mean Time Δ (%)'], 
-                   ['Median Time', 'Median Time Δ (%)'], 
-                   ['Standard Deviation', 'Standard Deviation Δ (%)'], 
-                   ['Coefficient of Variation (%)', 'Coefficient of Variation Δ (%)']]
+        columns = [['μ', 'Δμ (%)'], 
+                   ['Med', 'ΔMed (%)'], 
+                   ['Stddev', 'ΔStddev (%)'], 
+                   ['CV (%)', 'ΔCV (%)']]
 
     for i, _ in enumerate(columns):
         assert len(columns[i]), f'Column contains nothing!'
         col_name = columns[i][0]
         for j in selected_column_indices[1:]:
             benchmark_name = benchmark_data.benchmark_names[j]
-            columns[i].append(f'{col_name} {benchmark_name} Δ (%)')
+            columns[i].append(f'Δ{col_name}@{benchmark_name} (%)')
 
     flat_list = [
         value
