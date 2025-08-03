@@ -3,21 +3,33 @@ from PyQt5.QtCore import QTimer
 from PyQt5 import QtCore
 import sys
 from pathlib import Path
+from enum import IntEnum
 
 from benchmark_helpers.benchmark_data import BenchmarkColumn, BenchmarkData, BenchmarkEntry, TimeType
+from benchmark_helpers.util import time_to_str
 
 def get_columns(selected_column_indices: list[int], benchmark_data: BenchmarkData) -> list[str]:
+    if len(selected_column_indices) == 0:
+        return []
+    
     aggregated = False
     for index in selected_column_indices:
         aggregated = aggregated or benchmark_data.matrix[index].aggregated
 
     if not aggregated:
-        columns = [['Time', 'Time Delta (%)']]
+        columns = [['Time', 'Time Δ (%)']]
     else:
-        columns = [['Mean Time', 'Mean Time Delta (%)'], 
-                   ['Median Time', 'Median Time Delta (%)'], 
-                   ['Standard Deviation', 'Standard Deviation Delta (%)'], 
-                   ['Coefficient of Variation (%)', 'Coefficient of Variation Delta (%)']]
+        columns = [['Mean Time', 'Mean Time Δ (%)'], 
+                   ['Median Time', 'Median Time Δ (%)'], 
+                   ['Standard Deviation', 'Standard Deviation Δ (%)'], 
+                   ['Coefficient of Variation (%)', 'Coefficient of Variation Δ (%)']]
+
+    for i, _ in enumerate(columns):
+        assert len(columns[i]), f'Column contains nothing!'
+        col_name = columns[i][0]
+        for j in selected_column_indices[1:]:
+            benchmark_name = benchmark_data.benchmark_names[j]
+            columns[i].append(f'{col_name} {benchmark_name} Δ (%)')
 
     flat_list = [
         value
@@ -26,11 +38,51 @@ def get_columns(selected_column_indices: list[int], benchmark_data: BenchmarkDat
     ]
     return flat_list
 
-def column_to_str_matrix(column: BenchmarkColumn, time_type: TimeType) -> list[list[str]]:
-    matrix: list[list[str]] = []
-    for entry in column:
-        matrix.append(entry.get_row(column.aggregated, time_type))
-    return matrix
+def column_to_str_matrix(selected_column_indices: list[int], benchmark_data: BenchmarkData, time_type: TimeType) -> list[list[str]]:
+    aggregated = False
+    for index in selected_column_indices:
+        aggregated = aggregated or benchmark_data.matrix[index].aggregated
+
+    matrix: list[list[list[str]]] = []
+    if len(selected_column_indices) == 0:
+        return []
+    main_index = selected_column_indices[0]
+    main_column = benchmark_data.matrix[main_index]
+    for entry in main_column:
+        row = entry.get_row(main_column.aggregated, time_type)
+        matrix.append(row)
+
+    for i in selected_column_indices[1:]:
+        other_column = benchmark_data.matrix[i]
+        for j, (other_entry, main_entry) in enumerate(zip(other_column, main_column)):
+            if aggregated:
+                other_times = [other_entry.mean_time, other_entry.median_time, other_entry.stddev_time, other_entry.cv_time]
+                main_times = [main_entry.mean_time, main_entry.median_time, main_entry.stddev_time, main_entry.cv_time]
+            else:
+                other_times = [other_entry.time]
+                main_times = [main_entry.time]
+            for k, (other_time, main_time) in enumerate(zip(other_times, main_times)):
+                other_value = other_time.times[time_type]
+                main_value = main_time.times[time_type]
+
+                if j >= len(matrix) or k >= len(matrix[j]):
+                    continue
+
+                if other_value is None or main_value is None or main_value == 0:
+                    matrix[j][k].append('N/A')
+                    continue
+
+                comparison = ((other_value - main_value) / main_value) * 100.0
+                matrix[j][k].append(time_to_str(comparison, '%'))
+    flattened_matrix: list[list[str]] = []
+    for column in matrix:
+        new_row = [
+            value
+            for col in column
+            for value in col
+        ]
+        flattened_matrix.append(new_row)
+    return flattened_matrix
 
 def data_to_dict(benchmark_data: BenchmarkData) -> dict:
     data_dict = {}
@@ -83,6 +135,7 @@ class DropdownSelect(QToolButton):
         toolbar.addWidget(self)
 
     def addAction(self, text: str, func=None) -> 'DropdownSelect':
+        assert type(text) is str, f"'{text}' is not a str. {type(text)}"
         action = QAction(text, self.main_window)
         action.setCheckable(True)
         self.menu().addAction(action)
@@ -110,7 +163,8 @@ class MainWindow(QMainWindow):
         self.time_type = TimeType.REAL
 
         self.selected_indicies: list[int] = []
-        self.selected_names: list[int] = []
+        assert len(benchmark_data.benchmark_names) != 0, f'no benchmark names!'
+        self.selected_names: list[str] = []
 
         self.table = self.init_table()
         self.tree = self.init_tree()
@@ -132,7 +186,7 @@ class MainWindow(QMainWindow):
         self.table = QTableWidget()
         column_names = get_columns(self.selected_indicies, self.benchmark_data)
         row_names = self.benchmark_data.iteration_names
-        table_data = column_to_str_matrix(self.benchmark_data.matrix[0], self.time_type)
+        table_data = column_to_str_matrix(self.selected_indicies, self.benchmark_data, self.time_type)
         self.modify_table(column_names, row_names, table_data)
         return self.table
 
@@ -141,11 +195,12 @@ class MainWindow(QMainWindow):
         self.toolbar.setMovable(False)
         self.addToolBar(self.toolbar)
         column_names = get_columns(self.selected_indicies, self.benchmark_data)
-        self.modify_toolbar(column_names, self.selected_indicies)
+        self.modify_toolbar(column_names, self.selected_names)
         return self.toolbar
 
     def init_tree(self) -> QTreeWidget:
         self.tree = QTreeWidget()
+        self.tree.model().setHeaderData(0, QtCore.Qt.Horizontal, 'Benchmarks')
         self.tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
         data = data_to_dict(self.benchmark_data)
         self.build_tree(self.tree, data)
@@ -164,9 +219,6 @@ class MainWindow(QMainWindow):
         column_count = max(input_column_count, min_column_count)
         row_count = max(input_row_count, min_row_count)
 
-        # assert(input_column_count == len(table_data[0]))
-        # assert(input_row_count == len(table_data))
-
         additional_column_names = [''] * max(min_column_count - input_column_count, 0)
         additional_row_names = [''] * max(min_row_count - input_row_count, 0)
 
@@ -180,8 +232,9 @@ class MainWindow(QMainWindow):
         self.table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
 
         for i in range(column_count):
+            self.table.showColumn(i)
             for j in range(row_count):
-                if i < len(table_data[0]) and j < len(table_data):
+                if len(table_data) != 0 and i < len(table_data[0]) and j < len(table_data):
                     text = table_data[j][i]
                     item = QTableWidgetItem(text)
                     item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
@@ -190,6 +243,7 @@ class MainWindow(QMainWindow):
                     item = QTableWidgetItem('')
                     item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                     self.table.setItem(j, i, item)
+        self.table.resizeColumnsToContents()
 
     def modify_toolbar(self, columns: list[str], selected_benchmarks: list[str]):
         self.toolbar.clear()
@@ -203,7 +257,8 @@ class MainWindow(QMainWindow):
                 self.time_type = TimeType.CPU
             column_names = get_columns(self.selected_indicies, self.benchmark_data)
             row_names = self.benchmark_data.iteration_names
-            table_data = column_to_str_matrix(self.benchmark_data.matrix[0], self.time_type)
+            table_data = column_to_str_matrix(self.selected_indicies, self.benchmark_data, self.time_type)
+            
             self.modify_table(column_names, row_names, table_data)
         
         def toggle_column():
@@ -225,7 +280,23 @@ class MainWindow(QMainWindow):
         
         main_benchmark_menu = DropdownSelect(self.toolbar, self)
         for selected_benchmark in selected_benchmarks:
-            main_benchmark_menu.addAction(selected_benchmark)
+            main_benchmark_menu.addAction(selected_benchmark, self.change_parent_selected)
+
+    def change_parent_selected(self):
+        action: QAction = self.sender()
+        name = action.text()
+        try:
+            index = self.selected_names.index(name)
+        except ValueError:
+            return
+        self.selected_names.insert(0, self.selected_names.pop(index))
+        self.selected_indicies.insert(0, self.selected_indicies.pop(index))
+
+        column_names = get_columns(self.selected_indicies, self.benchmark_data)
+        row_names = self.benchmark_data.iteration_names
+        table_data = column_to_str_matrix(self.selected_indicies, self.benchmark_data, self.time_type)
+
+        self.modify_table(column_names, row_names, table_data)
 
     def build_tree(self, parent: QTreeWidget, data: dict):
         for key, value in data.items():
@@ -254,7 +325,7 @@ class MainWindow(QMainWindow):
             return
 
         column_names = get_columns(self.selected_indicies, self.benchmark_data)
-        matrix = column_to_str_matrix(self.benchmark_data.matrix[self.selected_indicies[0]], self.time_type)
+        matrix = column_to_str_matrix(self.selected_indicies, self.benchmark_data, self.time_type)
 
         self.modify_table(column_names, self.benchmark_data.iteration_names, matrix)
         self.modify_toolbar(column_names, self.selected_names)
