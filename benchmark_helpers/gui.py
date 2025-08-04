@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import QTimer
-from PyQt5 import QtCore
+from PyQt5 import QtCore, QtGui
 import sys
 from pathlib import Path
 from enum import IntEnum
@@ -210,8 +210,8 @@ class MainWindow(QMainWindow):
         return self.tree.selectionModel()
 
     def modify_table(self, columns_names: list[str], row_names: list[str], table_data: list[list[str]]):
-        min_column_count = 20
-        min_row_count = 35
+        min_column_count = 30
+        min_row_count = 50
 
         input_column_count = len(columns_names)
         input_row_count = len(row_names)
@@ -243,7 +243,64 @@ class MainWindow(QMainWindow):
                     item = QTableWidgetItem('')
                     item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                     self.table.setItem(j, i, item)
+
+        default_width = self.table.horizontalHeader().defaultSectionSize()
         self.table.resizeColumnsToContents()
+        self.table.horizontalHeader().setMinimumSectionSize(default_width)
+
+        self.preserve_max_vertical_header_width()
+        self.hide_empty_columns()
+        self.hide_empty_rows()
+
+    def preserve_max_vertical_header_width(self):
+        vertical_header = self.table.verticalHeader()
+        font_metrics = QtGui.QFontMetrics(vertical_header.font())
+
+        max_label_width = 0
+        for row_index in range(self.table.rowCount()):
+            item = self.table.verticalHeaderItem(row_index)
+            if item is None:
+                continue
+            width = font_metrics.width(item.text())
+            max_label_width = max(max_label_width, width)
+        
+        self.table.verticalHeader().setMinimumWidth(max_label_width)
+
+    def hide_empty_columns(self) -> int:
+        for col_index in range(self.table.columnCount()):
+            toggle_row = False
+            for row_index in range(self.table.rowCount()):
+                item = self.table.item(row_index, col_index)
+                if item is None:
+                    continue
+                text = item.text().strip()
+                if text == 'N/A':
+                    toggle_row = True
+                elif text != '':
+                    toggle_row = False
+                    break
+            if toggle_row:
+                self.table.hideColumn(col_index)
+            else:
+                self.table.showColumn(col_index)
+    
+    def hide_empty_rows(self):
+        for row_index in range(self.table.rowCount()):
+            toggle_row = False
+            for col_index in range(self.table.columnCount()):
+                item = self.table.item(row_index, col_index)
+                if item is None:
+                    continue
+                text = item.text().strip()
+                if text == 'N/A':
+                    toggle_row = True
+                elif text != '':
+                    toggle_row = False
+                    break
+            if toggle_row:
+                self.table.hideRow(row_index)
+            else:
+                self.table.showRow(row_index)
 
     def modify_toolbar(self, columns: list[str], selected_benchmarks: list[str]):
         self.toolbar.clear()
