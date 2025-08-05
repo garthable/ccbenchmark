@@ -17,6 +17,15 @@ static void bmbmbmbm(benchmark::State& state)
     }
 }
 
+static void bm_1(benchmark::State& state)
+{
+    for (auto _ : state)
+    {
+        sleep(1);
+    }
+}
+
 BENCHMARK(bm_0);
 BENCHMARK(bmbmbmbm);
+BENCHMARK(bm_1)->Unit(benchmark::TimeUnit::kSecond);
 BENCHMARK_MAIN();

@@ -92,6 +92,7 @@ def compare_benchmarks(benchmark_folder: Path, pattern: re.Pattern) -> None:
                     logger.warning(f'Invalid JSON in {json_file_path}: {e}')
                     continue
                 benchmark_data.add_json_file(iteration_index, json_loaded, benchmark_name_to_index)
+    benchmark_data.establish_common_time_unit()
     benchmark_data.compute_delta()
     benchmark_data.strip_common_paths()
     show_gui(benchmark_data)

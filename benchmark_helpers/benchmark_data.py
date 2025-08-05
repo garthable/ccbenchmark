@@ -1,4 +1,4 @@
-from enum import IntEnum
+from enum import IntEnum, StrEnum
 from dataclasses import dataclass
 from typing import Optional
 import logging
@@ -9,6 +9,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 AGGREGATE_KINDS = ['mean', 'median', 'stddev', 'cv']
+
+class TimeUnit(StrEnum):
+    NS = 'ns'
+    US = 'us'
+    MS = 'ms'
+    S = 's'
 
 class TimeType(IntEnum):
     REAL = 0
@@ -24,7 +30,7 @@ class BenchmarkTime:
         real_time_delta: Optional[float] = None,
         cpu_time: Optional[float] = None,
         cpu_time_delta: Optional[float] = None,
-        time_unit: Optional[str] = None
+        time_unit: Optional[TimeUnit] = None
     ):
         self.times = [real_time, cpu_time]
         self.time_deltas = [real_time_delta, cpu_time_delta]
@@ -64,6 +70,30 @@ class BenchmarkTime:
     @cpu_time_delta.setter
     def cpu_time_delta(self, value: Optional[float]):
         self.time_deltas[TimeType.CPU] = value
+
+    def convert_time(self, time_unit: TimeUnit) -> 'BenchmarkTime':
+        time_units = {TimeUnit.NS: 0, TimeUnit.US: 1, TimeUnit.MS: 2, TimeUnit.S: 3}
+
+        if self.time_unit is None:
+            return self
+
+        input_unit = time_units[self.time_unit]
+        output_unit = time_units[time_unit]
+
+        exponent = (input_unit - output_unit)*3
+        self.time_unit = time_unit
+        for i, _ in enumerate(self.times):
+            self.times[i] *= 10**exponent
+        return self
+
+def compute_delta_percentage(other_time: BenchmarkTime, base_time: BenchmarkTime, time_type: TimeType) -> float | None:
+    other_value = other_time.times[time_type]
+    base_value = base_time.times[time_type]
+
+    if base_value is None or other_value is None or base_value == 0:
+        return None
+
+    return ((other_value - base_value) / base_value) * 100.0
 
 class BenchmarkEntry:
     __slots__ = ("time", "mean_time", "median_time", "stddev_time", "cv_time")
@@ -183,7 +213,7 @@ class BenchmarkData:
                 logger.debug(f"{name} not found in benchmark_name_to_index")
                 continue
 
-            time = BenchmarkTime(real_time=real_time, cpu_time=cpu_time, time_unit=time_unit)
+            time = BenchmarkTime(real_time=real_time, cpu_time=cpu_time, time_unit=TimeUnit(time_unit))
             self.matrix[index].benchmark_bin_path = benchmark_bin_path
 
             if repetitions == 1 and run_type == 'iteration':
@@ -205,6 +235,21 @@ class BenchmarkData:
                     self.matrix[index][iteration_index].cv_time = time
                 else:
                     logger.warning(f"Unknown aggregate_name: {run_type}")
+
+    def establish_common_time_unit(self) -> None:
+        for col in self.matrix:
+            recent_entry = col.data[len(col.data) - 1]
+            time_units = [
+                recent_entry.time.time_unit, recent_entry.mean_time.time_unit, 
+                recent_entry.median_time.time_unit, recent_entry.stddev_time.time_unit, 
+                recent_entry.cv_time.time_unit
+            ]
+            for entry in col:
+                entry_times = [
+                    entry.time, entry.mean_time, entry.median_time, entry.stddev_time, entry.cv_time
+                ]
+                for entry_time, time_unit in zip(entry_times, time_units):
+                    entry_time.convert_time(time_unit)
 
     def compute_delta(self) -> None:
         """Computes percentage change between iterations."""
@@ -229,13 +274,10 @@ class BenchmarkData:
                 curr_times = [entry.mean_time, entry.median_time, entry.stddev_time, entry.cv_time]
                 for prev_time, curr_time in zip(prev_times, curr_times):
                     for time_type in [TimeType.REAL, TimeType.CPU]:
-                        new_value = curr_time.times[time_type]
-                        old_value = prev_time.times[time_type]
-
-                        if new_value is None or old_value is None:
+                        value = compute_delta_percentage(curr_time, prev_time, time_type)
+                        if value is None:
                             continue
-
-                        curr_time.time_deltas[time_type] = ((new_value - old_value) / old_value) * 100.0
+                        curr_time.time_deltas[time_type] = value
 
                 prev_times = curr_times
 
