@@ -87,11 +87,20 @@ class BenchmarkTime:
         return self
 
 def compute_delta_percentage(other_time: BenchmarkTime, base_time: BenchmarkTime, time_type: TimeType) -> float | None:
+    time_units = {None: -1, TimeUnit.NS: 0, TimeUnit.US: 1, TimeUnit.MS: 2, TimeUnit.S: 3}
+
     other_value = other_time.times[time_type]
     base_value = base_time.times[time_type]
 
+    input_unit = time_units[other_time.time_unit]
+    output_unit = time_units[base_time.time_unit]
+
+    exponent = (input_unit - output_unit)*3
+
     if base_value is None or other_value is None or base_value == 0:
         return None
+    
+    other_value *= 10**exponent
 
     return ((other_value - base_value) / base_value) * 100.0
 
