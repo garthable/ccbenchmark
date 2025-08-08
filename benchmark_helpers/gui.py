@@ -17,7 +17,7 @@ def get_columns(selected_column_indices: list[int], benchmark_data: BenchmarkDat
         aggregated = aggregated or benchmark_data.matrix[index].aggregated
 
     if not aggregated:
-        columns = [['Time', 'Time Δ (%)']]
+        columns = [['Time', 'ΔTime (%)']]
     else:
         columns = [['μ', 'Δμ (%)'], 
                    ['Med', 'ΔMed (%)'], 
