@@ -4,6 +4,7 @@ from typing import Optional
 import logging
 from pathlib import Path
 from benchmark_helpers.util import time_to_str
+import math
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -98,9 +99,14 @@ def compute_delta_percentage(other_time: BenchmarkTime, base_time: BenchmarkTime
     if base_value is None or other_value is None or base_value == 0:
         return None
     
-    other_value *= 10.0**float(base_unit - other_unit)
+    exponent = other_unit - base_unit
+    scale_factor = float(10 ** exponent)
+    log_fraction = math.log2(other_value) + math.log2(scale_factor) - math.log2(base_value)
+    fraction = math.exp2(log_fraction)
 
-    return ((other_value - base_value) / base_value) * 100.0
+    delta = math.fsum([fraction, -1.0]) 
+
+    return delta * 100.0
 
 class BenchmarkEntry:
     __slots__ = ("time", "mean_time", "median_time", "stddev_time", "cv_time")
