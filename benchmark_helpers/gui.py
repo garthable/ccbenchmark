@@ -239,29 +239,38 @@ class MainWindow(QMainWindow):
                     
                     item = QTableWidgetItem(text)
                     
-                    red_color = QtGui.QColor(255, 0, 0)
-                    green_color = QtGui.QColor(0, 255, 0)
+                    red_color = QtGui.QColor(255, 85, 85)
+                    green_color = QtGui.QColor(0, 255, 128)
                     default_color = self.table.palette().color(QtGui.QPalette.Text)
 
                     def get_color() -> QtGui.QColor:
+                        col_name = columns_names[i]
                         text_split = text.split(' ')
-                        if len(text_split) != 2:
+                        if len(text_split) == 0:
                             return default_color
-                        t = float(text_split[0]) / 20.0
-                        t = max(min(t, 1.0), -1.0)
-                        unit = text_split[1]
-                        if unit != '%':
+                        try:
+                            val = float(text_split[0])
+                        except:
                             return default_color
-                        if t < 0.0:
-                            t = abs(t)
-                            selected_color = green_color
-                        else:
-                            selected_color = red_color
-                        return QtGui.QColor(
-                            int((1.0 - t)*default_color.red() + t*selected_color.red()),
-                            int((1.0 - t)*default_color.green() + t*selected_color.green()),
-                            int((1.0 - t)*default_color.blue() + t*selected_color.blue())
-                        )
+
+                        if 'Δ' in col_name:
+                            t = val / 20.0
+                            t = max(min(t, 1.0), -1.0)
+                            if t < 0.0:
+                                t = abs(t)
+                                selected_color = green_color
+                            else:
+                                selected_color = red_color
+                            return QtGui.QColor(
+                                int((1.0 - t)*default_color.red() + t*selected_color.red()),
+                                int((1.0 - t)*default_color.green() + t*selected_color.green()),
+                                int((1.0 - t)*default_color.blue() + t*selected_color.blue())
+                            )
+                        elif 'CV' in col_name:
+                            if val > 10.0:
+                                return red_color
+
+                        return default_color
 
 
                     item.setForeground(QtGui.QBrush(get_color()))
