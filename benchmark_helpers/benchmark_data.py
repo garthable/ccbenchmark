@@ -84,26 +84,12 @@ class BenchmarkTime:
 
         exponent = (input_unit - output_unit)*3
         self.time_unit = time_unit
+        scaler = math.log(float(10**exponent))
         for i, _ in enumerate(self.times):
-            self.times[i] *= 10**exponent
+            time = float(self.times[i])
+            log_sum = math.fsum([math.log(time) + scaler])
+            self.times[i] = math.exp(log_sum)
         return self
-    
-def convert_time(time: BenchmarkTime, time_unit: TimeUnit) -> 'BenchmarkTime':
-    time_units = {TimeUnit.NS: 0, TimeUnit.US: 1, TimeUnit.MS: 2, TimeUnit.S: 3}
-
-    if time.time_unit is None:
-        return time
-
-    input_unit = time_units[time.time_unit]
-    output_unit = time_units[time_unit]
-
-    copy_time = deepcopy(time)
-
-    exponent = (input_unit - output_unit)*3
-    copy_time.time_unit = time_unit
-    for i, _ in enumerate(time.times):
-        copy_time.times[i] *= 10**exponent
-    return copy_time
 
 def compute_delta_percentage(other_time: BenchmarkTime, base_time: BenchmarkTime, time_type: TimeType) -> float | None:
     time_units = {None: -1, TimeUnit.NS: 0, TimeUnit.US: 3, TimeUnit.MS: 6, TimeUnit.S: 9}
@@ -278,7 +264,7 @@ class BenchmarkData:
             ]
             max_exps = []
             for time in times:
-                copy_time = convert_time(time, TimeUnit.NS)
+                copy_time = deepcopy(time).convert_time(TimeUnit.NS)
                 if copy_time.cpu_time is None or copy_time.real_time is None:
                     continue
                 max_exps.append(max(math.log10(copy_time.cpu_time), math.log10(copy_time.real_time)))
