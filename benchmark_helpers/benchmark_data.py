@@ -101,10 +101,8 @@ def compute_delta_percentage(other_time: BenchmarkTime, base_time: BenchmarkTime
     
     exponent = other_unit - base_unit
     scale_factor = float(10 ** exponent)
-    log_fraction = math.log2(other_value) + math.log2(scale_factor) - math.log2(base_value)
-    fraction = math.exp2(log_fraction)
-
-    delta = math.fsum([fraction, -1.0]) 
+    log_fraction = math.fsum([math.log(other_value), math.log(scale_factor), -math.log(base_value)])
+    delta = math.expm1(log_fraction)
 
     return delta * 100.0
 
