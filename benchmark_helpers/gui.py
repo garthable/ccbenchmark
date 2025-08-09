@@ -4,6 +4,7 @@ from PyQt5 import QtCore, QtGui
 import sys
 from pathlib import Path
 from enum import IntEnum
+import math
 
 from benchmark_helpers.benchmark_data import BenchmarkColumn, BenchmarkData, BenchmarkEntry, TimeType, compute_delta_percentage
 from benchmark_helpers.util import time_to_str
@@ -66,7 +67,7 @@ def column_to_str_matrix(selected_column_indices: list[int], benchmark_data: Ben
                 if j >= len(matrix) or k >= len(matrix[j]):
                     continue
 
-                delta_percentage = compute_delta_percentage(other_time, main_time, time_type)
+                delta_percentage = compute_delta_percentage(main_time, other_time, time_type)
 
                 if delta_percentage == None:
                     matrix[j][k].append('N/A')
@@ -235,8 +236,37 @@ class MainWindow(QMainWindow):
             for j in range(row_count):
                 if len(table_data) != 0 and i < len(table_data[0]) and j < len(table_data):
                     text = table_data[j][i]
+                    
                     item = QTableWidgetItem(text)
+                    
+                    red_color = QtGui.QColor(255, 0, 0)
+                    green_color = QtGui.QColor(0, 255, 0)
+                    default_color = self.table.palette().color(QtGui.QPalette.Text)
+
+                    def get_color() -> QtGui.QColor:
+                        text_split = text.split(' ')
+                        if len(text_split) != 2:
+                            return default_color
+                        t = float(text_split[0]) / 20.0
+                        t = max(min(t, 1.0), -1.0)
+                        unit = text_split[1]
+                        if unit != '%':
+                            return default_color
+                        if t < 0.0:
+                            t = abs(t)
+                            selected_color = green_color
+                        else:
+                            selected_color = red_color
+                        return QtGui.QColor(
+                            int((1.0 - t)*default_color.red() + t*selected_color.red()),
+                            int((1.0 - t)*default_color.green() + t*selected_color.green()),
+                            int((1.0 - t)*default_color.blue() + t*selected_color.blue())
+                        )
+
+
+                    item.setForeground(QtGui.QBrush(get_color()))
                     item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+                    
                     self.table.setItem(j, i, item)
                 else:
                     item = QTableWidgetItem('')
