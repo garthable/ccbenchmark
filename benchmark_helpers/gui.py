@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from enum import IntEnum
 
-from benchmark_helpers.benchmark_data import BenchmarkColumn, BenchmarkData, BenchmarkEntry, TimeType
+from benchmark_helpers.benchmark_data import BenchmarkColumn, BenchmarkData, BenchmarkEntry, TimeType, compute_delta_percentage
 from benchmark_helpers.util import time_to_str
 
 def get_columns(selected_column_indices: list[int], benchmark_data: BenchmarkData) -> list[str]:
@@ -62,18 +62,17 @@ def column_to_str_matrix(selected_column_indices: list[int], benchmark_data: Ben
                 other_times = [other_entry.time]
                 main_times = [main_entry.time]
             for k, (other_time, main_time) in enumerate(zip(other_times, main_times)):
-                other_value = other_time.times[time_type]
-                main_value = main_time.times[time_type]
 
                 if j >= len(matrix) or k >= len(matrix[j]):
                     continue
 
-                if other_value is None or main_value is None or main_value == 0:
+                delta_percentage = compute_delta_percentage(other_time, main_time, time_type)
+
+                if delta_percentage == None:
                     matrix[j][k].append('N/A')
                     continue
 
-                comparison = ((other_value - main_value) / main_value) * 100.0
-                matrix[j][k].append(time_to_str(comparison, '%'))
+                matrix[j][k].append(time_to_str(delta_percentage, '%'))
     flattened_matrix: list[list[str]] = []
     for column in matrix:
         new_row = [
