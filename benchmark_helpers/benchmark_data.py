@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 from benchmark_helpers.util import time_to_str
 import math
+from copy import deepcopy
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -86,6 +87,23 @@ class BenchmarkTime:
         for i, _ in enumerate(self.times):
             self.times[i] *= 10**exponent
         return self
+    
+def convert_time(time: BenchmarkTime, time_unit: TimeUnit) -> 'BenchmarkTime':
+    time_units = {TimeUnit.NS: 0, TimeUnit.US: 1, TimeUnit.MS: 2, TimeUnit.S: 3}
+
+    if time.time_unit is None:
+        return time
+
+    input_unit = time_units[time.time_unit]
+    output_unit = time_units[time_unit]
+
+    copy_time = deepcopy(time)
+
+    exponent = (input_unit - output_unit)*3
+    copy_time.time_unit = time_unit
+    for i, _ in enumerate(time.times):
+        copy_time.times[i] *= 10**exponent
+    return copy_time
 
 def compute_delta_percentage(other_time: BenchmarkTime, base_time: BenchmarkTime, time_type: TimeType) -> float | None:
     time_units = {None: -1, TimeUnit.NS: 0, TimeUnit.US: 3, TimeUnit.MS: 6, TimeUnit.S: 9}
@@ -252,16 +270,34 @@ class BenchmarkData:
     def establish_common_time_unit(self) -> None:
         for col in self.matrix:
             recent_entry = col.data[len(col.data) - 1]
-            time_units = [
-                recent_entry.time.time_unit, recent_entry.mean_time.time_unit, 
-                recent_entry.median_time.time_unit, recent_entry.stddev_time.time_unit, 
-                recent_entry.cv_time.time_unit
+
+            times = [
+                recent_entry.time, recent_entry.mean_time, 
+                recent_entry.median_time, recent_entry.stddev_time, 
+                recent_entry.cv_time
             ]
+            max_exps = []
+            for time in times:
+                copy_time = convert_time(time, TimeUnit.NS)
+                if copy_time.cpu_time is None or copy_time.real_time is None:
+                    continue
+                max_exps.append(max(math.log10(copy_time.cpu_time), math.log10(copy_time.real_time)))
+            max_exp = int(max(max_exps))
+
+            if max_exp < 3:
+                time_unit = TimeUnit.NS
+            elif max_exp < 6:
+                time_unit = TimeUnit.US
+            elif max_exp < 9:
+                time_unit = TimeUnit.MS
+            else:
+                time_unit = TimeUnit.S
+                
             for entry in col:
                 entry_times = [
                     entry.time, entry.mean_time, entry.median_time, entry.stddev_time, entry.cv_time
                 ]
-                for entry_time, time_unit in zip(entry_times, time_units):
+                for entry_time in entry_times:
                     entry_time.convert_time(time_unit)
 
     def compute_delta(self) -> None:
