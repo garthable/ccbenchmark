@@ -18,71 +18,48 @@ def get_columns(selected_column_indices: list[int], benchmark_data: BenchmarkDat
         aggregated = aggregated or benchmark_data.matrix[index].aggregated
 
     if not aggregated:
-        columns = [['Time', 'ΔTime (%)']]
+        columns = ['Time', 'ΔTime (%)']
     else:
-        columns = [['μ', 'Δμ (%)'], 
-                   ['Med', 'ΔMed (%)'], 
-                   ['Stddev', 'ΔStddev (%)'], 
-                   ['CV (%)', 'ΔCV (%)']]
+        columns = ['μ', 'Δμ (%)', 
+                   'Med', 'ΔMed (%)', 
+                   'Stddev', 'ΔStddev (%)', 
+                   'CV (%)', 'ΔCV (%)']
 
-    for i, _ in enumerate(columns):
-        assert len(columns[i]), f'Column contains nothing!'
-        col_name = columns[i][0]
-        for j in selected_column_indices[1:]:
-            benchmark_name = benchmark_data.benchmark_names[j]
-            columns[i].append(f'Δ{col_name}@{benchmark_name} (%)')
+    return columns
 
-    flat_list = [
-        value
-        for col in columns
-        for value in col
-    ]
-    return flat_list
+def get_rows(selected_column_indices: list[int], benchmark_data: BenchmarkData) -> list[str]:
+    if len(selected_column_indices) == 0:
+        return []
+    elif len(selected_column_indices) == 1:
+        return benchmark_data.iteration_names
+    return [benchmark_data.benchmark_names[i] for i in selected_column_indices]
 
 def column_to_str_matrix(selected_column_indices: list[int], benchmark_data: BenchmarkData, time_type: TimeType) -> list[list[str]]:
     aggregated = False
     for index in selected_column_indices:
         aggregated = aggregated or benchmark_data.matrix[index].aggregated
 
-    matrix: list[list[list[str]]] = []
+    matrix: list[list[str]] = []
     if len(selected_column_indices) == 0:
         return []
     main_index = selected_column_indices[0]
     main_column = benchmark_data.matrix[main_index]
-    for entry in main_column:
-        row = entry.get_row(main_column.aggregated, time_type)
-        matrix.append(row)
+
+    if len(selected_column_indices) == 1:
+        for entry in main_column:
+            row = entry.get_row_iteration_view(main_column.aggregated, time_type)
+            matrix.append(row)
+        return matrix
+    
+    recent_entry = main_column[len(main_column) - 1]
+    matrix.append(recent_entry.get_row_benchmark_view(main_column.aggregated, time_type, recent_entry))
 
     for i in selected_column_indices[1:]:
         other_column = benchmark_data.matrix[i]
-        for j, (other_entry, main_entry) in enumerate(zip(other_column, main_column)):
-            if aggregated:
-                other_times = [other_entry.mean_time, other_entry.median_time, other_entry.stddev_time, other_entry.cv_time]
-                main_times = [main_entry.mean_time, main_entry.median_time, main_entry.stddev_time, main_entry.cv_time]
-            else:
-                other_times = [other_entry.time]
-                main_times = [main_entry.time]
-            for k, (other_time, main_time) in enumerate(zip(other_times, main_times)):
+        other_entry = other_column[len(other_column) - 1]
+        matrix.append(other_entry.get_row_benchmark_view(main_column.aggregated, time_type, recent_entry))
 
-                if j >= len(matrix) or k >= len(matrix[j]):
-                    continue
-
-                delta_percentage = compute_delta_percentage(main_time, other_time, time_type)
-
-                if delta_percentage == None:
-                    matrix[j][k].append('N/A')
-                    continue
-
-                matrix[j][k].append(time_to_str(delta_percentage, '%'))
-    flattened_matrix: list[list[str]] = []
-    for column in matrix:
-        new_row = [
-            value
-            for col in column
-            for value in col
-        ]
-        flattened_matrix.append(new_row)
-    return flattened_matrix
+    return matrix
 
 def data_to_dict(benchmark_data: BenchmarkData) -> dict:
     data_dict = {}
@@ -184,10 +161,7 @@ class MainWindow(QMainWindow):
 
     def init_table(self) -> QTableWidget:
         self.table = QTableWidget()
-        column_names = get_columns(self.selected_indicies, self.benchmark_data)
-        row_names = self.benchmark_data.iteration_names
-        table_data = column_to_str_matrix(self.selected_indicies, self.benchmark_data, self.time_type)
-        self.modify_table(column_names, row_names, table_data)
+        self.modify_table()
         return self.table
 
     def init_toolbar(self) -> QToolBar:
@@ -209,7 +183,11 @@ class MainWindow(QMainWindow):
     def init_selmodel(self) -> QtCore.QItemSelectionModel:
         return self.tree.selectionModel()
 
-    def modify_table(self, columns_names: list[str], row_names: list[str], table_data: list[list[str]]):
+    def modify_table(self):
+        columns_names = get_columns(self.selected_indicies, self.benchmark_data)
+        row_names = get_rows(self.selected_indicies, self.benchmark_data)
+        table_data = column_to_str_matrix(self.selected_indicies, self.benchmark_data, self.time_type)
+
         min_column_count = 30
         min_row_count = 50
 
@@ -350,11 +328,8 @@ class MainWindow(QMainWindow):
                 self.time_type = TimeType.REAL
             elif action.text() == 'CPU Time':
                 self.time_type = TimeType.CPU
-            column_names = get_columns(self.selected_indicies, self.benchmark_data)
-            row_names = self.benchmark_data.iteration_names
-            table_data = column_to_str_matrix(self.selected_indicies, self.benchmark_data, self.time_type)
             
-            self.modify_table(column_names, row_names, table_data)
+            self.modify_table()
         
         def toggle_column():
             action: QAction = self.sender()
@@ -387,11 +362,7 @@ class MainWindow(QMainWindow):
         self.selected_names.insert(0, self.selected_names.pop(index))
         self.selected_indicies.insert(0, self.selected_indicies.pop(index))
 
-        column_names = get_columns(self.selected_indicies, self.benchmark_data)
-        row_names = self.benchmark_data.iteration_names
-        table_data = column_to_str_matrix(self.selected_indicies, self.benchmark_data, self.time_type)
-
-        self.modify_table(column_names, row_names, table_data)
+        self.modify_table()
 
     def build_tree(self, parent: QTreeWidget, data: dict):
         for key, value in data.items():
@@ -420,9 +391,8 @@ class MainWindow(QMainWindow):
             return
 
         column_names = get_columns(self.selected_indicies, self.benchmark_data)
-        matrix = column_to_str_matrix(self.selected_indicies, self.benchmark_data, self.time_type)
 
-        self.modify_table(column_names, self.benchmark_data.iteration_names, matrix)
+        self.modify_table()
         self.modify_toolbar(column_names, self.selected_names)
 
     def set_split_sizes(self):

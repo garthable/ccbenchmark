@@ -129,14 +129,15 @@ class BenchmarkEntry:
     def __repr__(self) -> str:
         return f"BenchmarkEntry(time={self.time}, mean_time={self.mean_time}, median_time={self.median_time}, stddev_time={self.stddev_time}, cv_time={self.cv_time})"
     
-    def get_row(self, is_aggregated: bool, time_type: TimeType) -> list[list[str]]:
+    def get_row_iteration_view(self, is_aggregated: bool, time_type: TimeType) -> list[str]:
         """Gets BenchmarkEntry as a row of strings."""
         row = []
         if not is_aggregated:
             time = self.time.times[time_type]
             time_delta = self.time.time_deltas[time_type]
             time_unit = self.time.time_unit
-            row.append([time_to_str(time, time_unit), time_to_str(time_delta, '%')])
+            row.append(time_to_str(time, time_unit))
+            row.append(time_to_str(time_delta, '%'))
             return row
 
         aggregate_times = [self.mean_time, self.median_time, self.stddev_time]
@@ -144,11 +145,40 @@ class BenchmarkEntry:
             value = time.times[time_type]
             delta = time.time_deltas[time_type]
             time_unit = time.time_unit
-            row.append([time_to_str(value, time_unit), time_to_str(delta, '%')])
+            row.append(time_to_str(value, time_unit))
+            row.append(time_to_str(delta, '%'))
 
         cv = self.cv_time.times[time_type]
         cv_delta = self.cv_time.time_deltas[time_type]
-        row.append([time_to_str(cv, '%'), time_to_str(cv_delta, '%')])
+        row.append(time_to_str(cv, '%'))
+        row.append(time_to_str(cv_delta, '%'))
+
+        return row
+
+    def get_row_benchmark_view(self, is_aggregated: bool, time_type: TimeType, main_entry: 'BenchmarkEntry') -> list[str]:
+        """Gets BenchmarkEntry as a row of strings."""
+        row = []
+        if not is_aggregated:
+            time_unit = self.time.time_unit
+            time = self.time.times[time_type]
+            time_delta = compute_delta_percentage(self.time, main_entry.time, time_type)
+            row.append(time_to_str(time, time_unit))
+            row.append(time_to_str(time_delta, '%'))
+            return row
+
+        aggregate_times = [self.mean_time, self.median_time, self.stddev_time]
+        main_aggregate_times = [main_entry.mean_time, main_entry.median_time, main_entry.stddev_time]
+        for time, main_time in zip(aggregate_times, main_aggregate_times):
+            value = time.times[time_type]
+            time_unit = time.time_unit
+            delta = compute_delta_percentage(time, main_time, time_type)
+            row.append(time_to_str(value, time_unit))
+            row.append(time_to_str(delta, '%'))
+
+        cv = self.cv_time.times[time_type]
+        cv_delta = compute_delta_percentage(self.cv_time, main_entry.cv_time, time_type)
+        row.append(time_to_str(cv, '%'))
+        row.append(time_to_str(cv_delta, '%'))
 
         return row
 
