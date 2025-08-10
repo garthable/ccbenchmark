@@ -278,6 +278,7 @@ class BenchmarkData:
                     self.matrix[index][iteration_index].stddev_time = time
                 elif aggregate_name == 'cv':
                     self.matrix[index][iteration_index].cv_time = time
+                    self.matrix[index][iteration_index].cv_time.time_unit = None
                     self.matrix[index][iteration_index].cv_time.real_time *= 100.0
                     self.matrix[index][iteration_index].cv_time.cpu_time *= 100.0
                 else:
