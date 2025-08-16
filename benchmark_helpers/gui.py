@@ -344,9 +344,11 @@ class MainWindow(QMainWindow):
         for i, col in enumerate(columns):
             show_stats_menu.addAction(col, True, toggle_column, True, data={'column_index': i})
 
-        DropdownSelect(self.toolbar, self)\
-            .addAction('Real Time', toggle_cpu_real_time)\
-            .addAction('CPU Time', toggle_cpu_real_time)
+        actions = ['Real Time', 'CPU Time'] if self.time_type == TimeType.REAL else ['CPU Time', 'Real Time']
+
+        time_type_dropdown = DropdownSelect(self.toolbar, self)
+        for action in actions:
+            time_type_dropdown.addAction(action, toggle_cpu_real_time)
         
         main_benchmark_menu = DropdownSelect(self.toolbar, self)
         for selected_benchmark in selected_benchmarks:
