@@ -318,6 +318,39 @@ class MainWindow(QMainWindow):
             else:
                 self.table.showRow(row_index)
 
+    def get_csv(self, deliminator=b',') -> bytes:
+        data = b'"Label"'
+        for col in range(self.table.columnCount()):
+            text = self.table.horizontalHeaderItem(col).text()
+            if text == '':
+                continue
+            data += deliminator + b'"' + text.encode() + b'"'
+        for row in range(self.table.rowCount()):
+            if self.table.isRowHidden(row):
+                continue
+            header = self.table.verticalHeaderItem(row).text()
+            if header == '':
+                continue
+            data_row = b'\n"' + header.encode() + b'"'
+            for col in range(self.table.columnCount()):
+                if self.table.isColumnHidden(col):
+                    continue
+                item = self.table.item(row, col)
+                if item is None or item.text().strip() == '':
+                    continue
+
+                comma = b'' if len(data_row) == 0 else deliminator
+                data_row += comma + b'"' + item.text().encode() + b'"'
+                
+            if data_row != b'':
+                data += data_row
+        return data
+
+    def export_to_csv(self):
+        file = QFileDialog(self)
+        data = self.get_csv()
+        file.saveFileContent(data, f'benchmark.csv')
+
     def modify_toolbar(self, columns: list[str], selected_benchmarks: list[str]):
         self.toolbar.clear()
         show_stats_menu = DropdownChecks('Shown Stats', self.toolbar, self)
@@ -353,6 +386,11 @@ class MainWindow(QMainWindow):
         main_benchmark_menu = DropdownSelect(self.toolbar, self)
         for selected_benchmark in selected_benchmarks:
             main_benchmark_menu.addAction(selected_benchmark, self.change_parent_selected)
+
+        export_to_csv_button = QToolButton()
+        export_to_csv_button.setText('CSV')
+        export_to_csv_button.clicked.connect(self.export_to_csv)
+        self.toolbar.addWidget(export_to_csv_button)
 
     def change_parent_selected(self):
         action: QAction = self.sender()
