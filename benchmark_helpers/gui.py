@@ -156,7 +156,7 @@ class Table(QTableWidget):
 
     def get_selected_matrix(self) -> list[list[str | float]]:
         selected_ranges = self.selectedRanges()
-        if not selected_ranges:
+        if not selected_ranges or len(selected_ranges) == 0:
             return
         selected_range = selected_ranges[0]
         matrix = []
