@@ -133,6 +133,42 @@ class DropdownSelect(QToolButton):
             action.triggered.connect(func)
         return self
 
+def get_csv(matrix: list[list[str | float]], deliminator=b',') -> bytes:
+    data = b''
+    for row in matrix:
+        data_row = ''
+        for entry in row:
+            text = f'"{entry}"' if type(entry) is str else f'{entry}'
+            data_row += f'{text}' if data_row == '' else f'{deliminator}{text}'
+            
+        data += f'{data_row}'.encode() if data == b'' else f'\n{data_row}'.encode()
+    return data
+
+class Table(QTableWidget):
+    def keyPressEvent(self, event):
+        if event.matches(QtGui.QKeySequence.Copy):
+            self.copy()
+        else:
+            super().keyPressEvent(event)
+    def copy(self) -> None:
+        data = get_csv(self.get_matrix(), deliminator='\t').decode()
+        QApplication.clipboard().setText(data)
+
+    def get_matrix(self) -> list[list[str | float]]:
+        selected_ranges = self.selectedRanges()
+        if not selected_ranges:
+            return
+        
+        matrix = []
+        selected_range = selected_ranges[0]
+        for row in range(selected_range.topRow(), selected_range.bottomRow() + 1):
+            row_text = []
+            for col in range(selected_range.leftColumn(), selected_range.rightColumn() + 1):
+                item = self.item(row, col)
+                row_text.append(item.text())
+            matrix.append(row_text)
+        return matrix
+
 class MainWindow(QMainWindow):
     def __init__(self, benchmark_data: BenchmarkData):
         super().__init__()
@@ -159,8 +195,8 @@ class MainWindow(QMainWindow):
 
         QTimer.singleShot(0, self.set_split_sizes)
 
-    def init_table(self) -> QTableWidget:
-        self.table = QTableWidget()
+    def init_table(self) -> Table:
+        self.table = Table()
         self.modify_table()
         return self.table
 
@@ -318,37 +354,36 @@ class MainWindow(QMainWindow):
             else:
                 self.table.showRow(row_index)
 
-    def get_csv(self, deliminator=b',') -> bytes:
-        data = b'"Label"'
+    def to_matrix(self) -> list[list[str | float]]:
+        data = []
+        data_row = ['Label']
         for col in range(self.table.columnCount()):
             text = self.table.horizontalHeaderItem(col).text()
             if text == '':
                 continue
-            data += deliminator + b'"' + text.encode() + b'"'
+            data_row.append(text)
+        data.append(data_row)
         for row in range(self.table.rowCount()):
             if self.table.isRowHidden(row):
                 continue
             header = self.table.verticalHeaderItem(row).text()
             if header == '':
                 continue
-            data_row = b'\n"' + header.encode() + b'"'
+            data_row = [header]
             for col in range(self.table.columnCount()):
                 if self.table.isColumnHidden(col):
                     continue
                 item = self.table.item(row, col)
                 if item is None or item.text().strip() == '':
                     continue
+                data_row.append(item.text())
 
-                comma = b'' if len(data_row) == 0 else deliminator
-                data_row += comma + b'"' + item.text().encode() + b'"'
-                
-            if data_row != b'':
-                data += data_row
+            data.append(data_row)
         return data
 
     def export_to_csv(self):
         file = QFileDialog(self)
-        data = self.get_csv()
+        data = get_csv(self.to_matrix())
         file.saveFileContent(data, f'benchmark.csv')
 
     def modify_toolbar(self, columns: list[str], selected_benchmarks: list[str]):
