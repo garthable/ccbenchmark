@@ -24,6 +24,12 @@ except ImportError as e:
     logger.critical(f"Failed to import benchmark_helpers: {e}")
     sys.exit(99)
 
+try:
+    from benchmark_helpers.benchmark_settings import LocalSettings, load_local_settings
+except ImportError as e:
+    logger.critical(f"Failed to import benchmark_helpers: {e}")
+    sys.exit(99)
+
 RUN_ACTIONS = {'run', 'r', 'run_and_compare', 'rac'}
 COMPARE_ACTIONS = {'compare', 'c', 'run_and_compare', 'rac'}
 BENCHMARK_FILE = 'benchmarks.txt'
@@ -34,6 +40,7 @@ class ExitResult(IntEnum):
     INVALID_WORKDIR = 2
     NO_BENCHMARKS_FOUND = 3
     INVALID_REGEX = 4
+    NO_LOCAL_SETTINGS = 5
 
     def __str__(self):
         return self.name
@@ -50,13 +57,13 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> ExitResul
         logger.error(f"Error: Working directory {working_dir} does not exist or is not a directory.")
         return ExitResult.INVALID_WORKDIR
     
-    benchmark_path = working_dir / BENCHMARK_FILE
-    if not benchmark_path.is_file():
-        logger.error(f"Error: benchmarks.txt not found in {working_dir}")
-        return ExitResult.NO_BENCHMARKS_FOUND
+    local_settings = load_local_settings()
+    if local_settings is None:
+        logger.error(f"Error: No local settings found!")
+        return ExitResult.NO_LOCAL_SETTINGS
 
     if args.action in RUN_ACTIONS:
-        run_benchmarks(benchmark_path, args.iteration_name)
+        run_benchmarks(local_settings.bin_directory, local_settings.output_directory, args.iteration_name)
 
     if args.action in COMPARE_ACTIONS:
         try:
@@ -64,7 +71,7 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> ExitResul
         except re.error as e:
             logger.error(f"Invalid regex pattern for compare_name: {e}")
             return ExitResult.INVALID_REGEX
-        compare_benchmarks(benchmark_path, pattern)
+        compare_benchmarks(local_settings.output_directory, pattern)
 
     return ExitResult.SUCCESS
 

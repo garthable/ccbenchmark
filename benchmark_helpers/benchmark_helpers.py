@@ -5,6 +5,7 @@ import re
 import shutil
 from pathlib import Path
 import logging
+import mimetypes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,6 +21,12 @@ try:
     from benchmark_helpers.gui import show_gui
 except ImportError as e:
     logger.critical(f"Failed to import gui: {e}")
+    sys.exit(IMPORT_FAILURE_EXIT_CODE)
+
+try:
+    from benchmark_helpers.benchmark_settings import LocalSettings
+except ImportError as e:
+    logger.critical(f"Failed to import settings: {e}")
     sys.exit(IMPORT_FAILURE_EXIT_CODE)
 
 def get_latest_mtime_in_dir(path: Path) -> float:
@@ -70,17 +77,16 @@ def init_benchmark_names(pattern: re.Pattern, benchmark_result_folder: Path) -> 
 
     return benchmark_names, benchmark_name_to_index
 
-def compare_benchmarks(benchmark_folder: Path, pattern: re.Pattern) -> None:
+def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) -> None:
     """Compares benchmark results, launches gui"""
-    benchmark_result_folder = benchmark_folder.parent / 'benchmark_results'
 
     iteration_paths_sorted = sorted(
-        (f for f in benchmark_result_folder.iterdir() if f.is_dir()),
+        (f for f in benchmark_output_directory.iterdir() if f.is_dir()),
         key=get_latest_mtime_in_dir
     )
 
     iteration_names = [path.name for path in iteration_paths_sorted]
-    benchmark_names, benchmark_name_to_index = init_benchmark_names(pattern, benchmark_result_folder)
+    benchmark_names, benchmark_name_to_index = init_benchmark_names(pattern, benchmark_output_directory)
     benchmark_data = BenchmarkData(benchmark_names, iteration_names)
 
     for iteration_index, iteration_path in enumerate(iteration_paths_sorted):
@@ -117,38 +123,48 @@ def run_single_benchmark(binary_path: Path, output_path: Path) -> int:
     ]
 
     return subprocess.call(cmd, stdin=None, stdout=None, stderr=None, shell=False)
+
+def get_bin_paths(benchmark_root_dir: Path) -> list[Path]:
+    binaries = []
+    if not benchmark_root_dir.exists():
+        logger.error(f'The benchmark binary root directory "{benchmark_root_dir}" does not exist!')
+        return binaries
+    if not benchmark_root_dir.is_dir():
+        logger.error(f'The benchmark binary root directory "{benchmark_root_dir}" is a file!')
+        return binaries
     
-def run_benchmarks(benchmark_path: Path, tag: str) -> None:
+    for path in benchmark_root_dir.rglob('*'):
+        mime = mimetypes.guess_type(path)
+        if 'text' in mime[0] and path.is_file():
+            binaries.append(path)
+    return binaries
+
+def run_benchmarks(benchmark_root_dir: Path, output_dir: Path, tag: str) -> None:
     """Runs all benchmarks in benchmark.txt"""
-    output_dir = init_dir(benchmark_path, tag)
+    output_dir = init_dir(output_dir, tag)
     if tag != 'recent':
-        recent_dir = init_dir(benchmark_path, 'recent')
+        recent_dir = init_dir(output_dir, 'recent')
 
-    with open(benchmark_path, 'r', encoding='utf-8') as benchmark_file:
-        for line in benchmark_file:
-            line = line.strip()
-            if not line:
-                logger.warning("Skipping empty line in benchmark file.")
-                continue
-            binary_path = Path(line)
-            benchmark_name = binary_path.name
+    binary_paths = get_bin_paths(benchmark_root_dir)
 
-            if not binary_path.is_file():
-                logger.warning(f"Benchmark binary not found: {binary_path}")
-                continue
+    for binary_path in binary_paths:
+        benchmark_name = binary_path.name
 
-            logger.info(f'Running benchmark: {benchmark_name}')
+        logger.info(f'Running benchmark: {benchmark_name}')
 
-            result = run_single_benchmark(binary_path, output_dir / f'{benchmark_name}.json')
-            
-            if result != 0:
-                logger.warning(f'{benchmark_name}: Exited with code: {result}')
-            else:
-                logger.info(f'{benchmark_name}: OK')
-            
-            if tag != 'recent':
-                dest_path = recent_dir / f'{benchmark_name}.json'
-                shutil.copy(output_dir / f'{benchmark_name}.json', dest_path)
-                # Updates mtime of file for freshness sorting.
-                dest_path.touch()
-                logger.debug(f"Copied result to recent: {dest_path}")
+        result = run_single_benchmark(binary_path, output_dir / f'{benchmark_name}.json')
+        
+        if result != 0:
+            logger.warning(f'{benchmark_name}: Exited with code: {result}')
+        else:
+            logger.info(f'{benchmark_name}: OK')
+        
+        if tag != 'recent':
+            dest_path = recent_dir / f'{benchmark_name}.json'
+            shutil.copy(output_dir / f'{benchmark_name}.json', dest_path)
+            # Updates mtime of file for freshness sorting.
+            dest_path.touch()
+            logger.debug(f"Copied result to recent: {dest_path}")
+
+def init_benchmarks() -> None:
+    pass
