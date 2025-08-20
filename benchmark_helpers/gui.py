@@ -151,18 +151,24 @@ class Table(QTableWidget):
         else:
             super().keyPressEvent(event)
     def copy(self) -> None:
-        data = get_csv(self.get_matrix(), deliminator='\t').decode()
+        data = get_csv(self.get_selected_matrix(), deliminator='\t').decode()
         QApplication.clipboard().setText(data)
 
-    def get_matrix(self) -> list[list[str | float]]:
+    def get_selected_matrix(self) -> list[list[str | float]]:
         selected_ranges = self.selectedRanges()
         if not selected_ranges:
             return
-        
-        matrix = []
         selected_range = selected_ranges[0]
+        matrix = []
+        row_text = ["Label"]
+        for col in range(selected_range.leftColumn(), selected_range.rightColumn() + 1):
+            item = self.horizontalHeaderItem(col)
+            row_text.append(item.text())
+        matrix.append(row_text)
+
         for row in range(selected_range.topRow(), selected_range.bottomRow() + 1):
-            row_text = []
+            item = self.verticalHeaderItem(row)
+            row_text = [item.text()]
             for col in range(selected_range.leftColumn(), selected_range.rightColumn() + 1):
                 item = self.item(row, col)
                 row_text.append(item.text())
