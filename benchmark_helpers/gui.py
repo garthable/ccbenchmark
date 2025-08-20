@@ -162,6 +162,8 @@ class Table(QTableWidget):
         matrix = []
         row_text = ["Label"]
         for col in range(selected_range.leftColumn(), selected_range.rightColumn() + 1):
+            if self.isColumnHidden(col):
+                continue
             item = self.horizontalHeaderItem(col)
             row_text.append(item.text())
         matrix.append(row_text)
@@ -170,6 +172,8 @@ class Table(QTableWidget):
             item = self.verticalHeaderItem(row)
             row_text = [item.text()]
             for col in range(selected_range.leftColumn(), selected_range.rightColumn() + 1):
+                if self.isColumnHidden(col):
+                    continue
                 item = self.item(row, col)
                 row_text.append(item.text())
             matrix.append(row_text)
