@@ -6,8 +6,8 @@ from pathlib import Path
 from enum import IntEnum
 import math
 
-from benchmark_helpers.benchmark_data import BenchmarkColumn, BenchmarkData, BenchmarkEntry, TimeType, compute_delta_percentage
-from benchmark_helpers.util import time_to_str
+from ccbenchmark.benchmark_data import BenchmarkColumn, BenchmarkData, BenchmarkEntry, TimeType, compute_delta_percentage
+from ccbenchmark.util import time_to_str
 
 def get_columns(selected_column_indices: list[int], benchmark_data: BenchmarkData) -> list[str]:
     if len(selected_column_indices) == 0:

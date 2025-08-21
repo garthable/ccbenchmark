@@ -13,20 +13,14 @@ logger = logging.getLogger()
 IMPORT_FAILURE_EXIT_CODE = 99
 
 try:
-    from benchmark_helpers.benchmark_data import BenchmarkData
+    from ccbenchmark.benchmark_data import BenchmarkData
 except ImportError as e:
     logger.critical(f"Failed to import benchmark_data: {e}")
     sys.exit(IMPORT_FAILURE_EXIT_CODE)
 try:
-    from benchmark_helpers.gui import show_gui
+    from ccbenchmark.gui import show_gui
 except ImportError as e:
     logger.critical(f"Failed to import gui: {e}")
-    sys.exit(IMPORT_FAILURE_EXIT_CODE)
-
-try:
-    from benchmark_helpers.benchmark_settings import LocalSettings
-except ImportError as e:
-    logger.critical(f"Failed to import settings: {e}")
     sys.exit(IMPORT_FAILURE_EXIT_CODE)
 
 def get_latest_mtime_in_dir(path: Path) -> float:

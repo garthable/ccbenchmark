@@ -19,15 +19,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
 try:
-    from benchmark_helpers.benchmark_helpers import run_benchmarks, compare_benchmarks
+    from ccbenchmark.benchmark_helpers import run_benchmarks, compare_benchmarks
 except ImportError as e:
     logger.critical(f"Failed to import benchmark_helpers: {e}")
     sys.exit(99)
 
 try:
-    from benchmark_helpers.benchmark_settings import LocalSettings, load_local_settings
+    from ccbenchmark.benchmark_settings import LocalSettings, load_local_settings
 except ImportError as e:
-    logger.critical(f"Failed to import benchmark_helpers: {e}")
+    logger.critical(f"Failed to import settings: {e}")
     sys.exit(99)
 
 RUN_ACTIONS = {'run', 'r', 'run_and_compare', 'rac'}
@@ -75,7 +75,7 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> ExitResul
 
     return ExitResult.SUCCESS
 
-if __name__ == "__main__":
+def entrypoint():
     epilog = textwrap.dedent("""\
     Examples:
        benchmark run

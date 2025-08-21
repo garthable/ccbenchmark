@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Optional
 import logging
 from pathlib import Path
-from benchmark_helpers.util import time_to_str
+from ccbenchmark.util import time_to_str
 import math
 from copy import deepcopy
 
