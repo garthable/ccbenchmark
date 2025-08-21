@@ -79,7 +79,7 @@ def init_benchmark_names(pattern: re.Pattern, benchmark_result_folder: Path) -> 
 
 def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) -> None:
     """Compares benchmark results, launches gui"""
-
+    print(benchmark_output_directory)
     iteration_paths_sorted = sorted(
         (f for f in benchmark_output_directory.iterdir() if f.is_dir()),
         key=get_latest_mtime_in_dir
@@ -97,6 +97,7 @@ def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) ->
                 except json.JSONDecodeError as e:
                     logger.warning(f'Invalid JSON in {json_file_path}: {e}')
                     continue
+                print(iteration_index)
                 benchmark_data.add_json_file(iteration_index, json_loaded, benchmark_name_to_index)
     benchmark_data.establish_common_time_unit()
     benchmark_data.compute_delta()
@@ -105,7 +106,7 @@ def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) ->
 
 def init_dir(benchmark_path: Path, tag: str) -> Path:
     """Initializes directory, prevents errors from directory not existing"""
-    output_dir = benchmark_path.parent / 'benchmark_results' / tag
+    output_dir = benchmark_path.parent / tag
     try:
         output_dir.mkdir(parents=True, exist_ok=True)
     except Exception as e:
@@ -134,8 +135,8 @@ def get_bin_paths(benchmark_root_dir: Path) -> list[Path]:
         return binaries
     
     for path in benchmark_root_dir.rglob('*'):
-        mime = mimetypes.guess_type(path)
-        if 'text' in mime[0] and path.is_file():
+        is_binary = shutil.which(path) is not None
+        if is_binary and path.is_file():
             binaries.append(path)
     return binaries
 
