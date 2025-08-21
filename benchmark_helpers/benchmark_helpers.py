@@ -90,7 +90,9 @@ def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) ->
     benchmark_data = BenchmarkData(benchmark_names, iteration_names)
 
     for iteration_index, iteration_path in enumerate(iteration_paths_sorted):
+        assert iteration_path.is_dir(), f'{iteration_path} is not a directory.'
         for json_file_path in iteration_path.iterdir():
+            assert json_file_path.suffix == '.json', f'ERROR: None Json File: {json_file_path}'
             with open(json_file_path, 'r', encoding='utf-8') as json_file:
                 try:
                     json_loaded = json.load(json_file)
@@ -98,17 +100,15 @@ def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) ->
                     logger.warning(f'Invalid JSON in {json_file_path}: {e}')
                     continue
                 benchmark_data.add_json_file(iteration_index, json_loaded, benchmark_name_to_index)
-    for col in benchmark_data.matrix:
-        for entry in col:
-            print(entry)
+
     benchmark_data.establish_common_time_unit()
     benchmark_data.compute_delta()
     benchmark_data.strip_common_paths()
     show_gui(benchmark_data)
 
-def init_dir(benchmark_path: Path, tag: str) -> Path:
+def init_dir(benchmark_path: Path, tag: Path) -> Path:
     """Initializes directory, prevents errors from directory not existing"""
-    output_dir = benchmark_path.parent / tag
+    output_dir = benchmark_path / tag
     try:
         output_dir.mkdir(parents=True, exist_ok=True)
     except Exception as e:
@@ -144,9 +144,10 @@ def get_bin_paths(benchmark_root_dir: Path) -> list[Path]:
 
 def run_benchmarks(benchmark_root_dir: Path, output_dir: Path, tag: str) -> None:
     """Runs all benchmarks in benchmark.txt"""
-    output_dir = init_dir(output_dir, tag)
+
     if tag != 'recent':
         recent_dir = init_dir(output_dir, 'recent')
+    output_dir = init_dir(output_dir, Path(tag))
 
     binary_paths = get_bin_paths(benchmark_root_dir)
 
