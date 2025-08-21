@@ -8,7 +8,7 @@ import math
 from copy import deepcopy
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 AGGREGATE_KINDS = ['mean', 'median', 'stddev', 'cv']
 
@@ -293,6 +293,8 @@ class BenchmarkData:
                 recent_entry.median_time, recent_entry.stddev_time, 
                 recent_entry.cv_time
             ]
+            for time in times:
+                print(f'{time.cpu_time} {time.cpu_time_delta} {time.real_time} {time.real_time_delta}')
             max_exps = []
             for time in times:
                 copy_time = deepcopy(time).convert_time(TimeUnit.NS)
@@ -301,6 +303,8 @@ class BenchmarkData:
                 max_exps.append(
                     max(math.log10(copy_time.cpu_time), math.log10(copy_time.real_time))
                 )
+            if max_exps == []:
+                continue
             max_exp = int(max(max_exps))
 
             if max_exp < 3:

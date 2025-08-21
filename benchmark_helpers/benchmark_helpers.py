@@ -8,7 +8,7 @@ import logging
 import mimetypes
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 IMPORT_FAILURE_EXIT_CODE = 99
 
@@ -79,7 +79,7 @@ def init_benchmark_names(pattern: re.Pattern, benchmark_result_folder: Path) -> 
 
 def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) -> None:
     """Compares benchmark results, launches gui"""
-    print(benchmark_output_directory)
+
     iteration_paths_sorted = sorted(
         (f for f in benchmark_output_directory.iterdir() if f.is_dir()),
         key=get_latest_mtime_in_dir
@@ -97,8 +97,10 @@ def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) ->
                 except json.JSONDecodeError as e:
                     logger.warning(f'Invalid JSON in {json_file_path}: {e}')
                     continue
-                print(iteration_index)
                 benchmark_data.add_json_file(iteration_index, json_loaded, benchmark_name_to_index)
+    for col in benchmark_data.matrix:
+        for entry in col:
+            print(entry)
     benchmark_data.establish_common_time_unit()
     benchmark_data.compute_delta()
     benchmark_data.strip_common_paths()
