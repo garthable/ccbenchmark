@@ -293,8 +293,7 @@ class BenchmarkData:
                 recent_entry.median_time, recent_entry.stddev_time, 
                 recent_entry.cv_time
             ]
-            for time in times:
-                print(f'{time.cpu_time} {time.cpu_time_delta} {time.real_time} {time.real_time_delta}')
+
             max_exps = []
             for time in times:
                 copy_time = deepcopy(time).convert_time(TimeUnit.NS)
