@@ -298,7 +298,9 @@ class BenchmarkData:
                 copy_time = deepcopy(time).convert_time(TimeUnit.NS)
                 if copy_time.cpu_time is None or copy_time.real_time is None:
                     continue
-                max_exps.append(max(math.log10(copy_time.cpu_time), math.log10(copy_time.real_time)))
+                max_exps.append(
+                    max(math.log10(copy_time.cpu_time), math.log10(copy_time.real_time))
+                )
             max_exp = int(max(max_exps))
 
             if max_exp < 3:
