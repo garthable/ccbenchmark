@@ -6,24 +6,6 @@ import sys
 from ccbenchmark.benchmark_data import BenchmarkColumn, BenchmarkData, BenchmarkEntry, TimeType, compute_delta_percentage
 from ccbenchmark.util import time_to_str
 
-def get_columns(selected_column_indices: list[int], benchmark_data: BenchmarkData) -> list[str]:
-    if len(selected_column_indices) == 0:
-        return []
-    
-    aggregated = False
-    for index in selected_column_indices:
-        aggregated = aggregated or benchmark_data.matrix[index].aggregated
-
-    if not aggregated:
-        columns = ['Time', 'ΔTime (%)']
-    else:
-        columns = ['μ', 'Δμ (%)', 
-                   'Med', 'ΔMed (%)', 
-                   'Stddev', 'ΔStddev (%)', 
-                   'CV (%)', 'ΔCV (%)']
-
-    return columns
-
 def get_rows(selected_column_indices: list[int], benchmark_data: BenchmarkData) -> list[str]:
     if len(selected_column_indices) == 0:
         return []
@@ -184,7 +166,7 @@ class MainWindow(QMainWindow):
         self.toolbar = QToolBar('Main Toolbar')
         self.toolbar.setMovable(False)
         self.addToolBar(self.toolbar)
-        column_names = get_columns(self.selected_indicies, self.benchmark_data)
+        column_names = self.benchmark_data.get_columns(self.selected_indicies)
         self.modify_toolbar(column_names, self.selected_names)
         return self.toolbar
 
@@ -200,7 +182,7 @@ class MainWindow(QMainWindow):
         return self.tree.selectionModel()
 
     def modify_table(self):
-        columns_names = get_columns(self.selected_indicies, self.benchmark_data)
+        columns_names = self.benchmark_data.get_columns(self.selected_indicies)
         row_names = get_rows(self.selected_indicies, self.benchmark_data)
         table_data = self.benchmark_data.column_to_str_matrix(self.selected_indicies, self.time_type)
 
@@ -445,7 +427,7 @@ class MainWindow(QMainWindow):
         if len(self.selected_indicies) == 0:
             return
 
-        column_names = get_columns(self.selected_indicies, self.benchmark_data)
+        column_names = self.benchmark_data.get_columns(self.selected_indicies)
 
         self.modify_table()
         self.modify_toolbar(column_names, self.selected_names)

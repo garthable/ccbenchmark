@@ -399,3 +399,21 @@ class BenchmarkData:
             matrix.append(other_entry.get_row_benchmark_view(main_column.aggregated, time_type, recent_entry))
 
         return matrix
+    
+    def get_columns(self, selected_column_indices: list[int]) -> list[str]:
+        if len(selected_column_indices) == 0:
+            return []
+        
+        aggregated = False
+        for index in selected_column_indices:
+            aggregated = aggregated or self.matrix[index].aggregated
+
+        if not aggregated:
+            columns = ['Time', 'ΔTime (%)']
+        else:
+            columns = ['μ', 'Δμ (%)', 
+                    'Med', 'ΔMed (%)', 
+                    'Stddev', 'ΔStddev (%)', 
+                    'CV (%)', 'ΔCV (%)']
+
+        return columns
