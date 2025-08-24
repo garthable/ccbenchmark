@@ -372,3 +372,30 @@ class BenchmarkData:
                 parts = paths[j].parts[1:]
                 paths[j] = Path(*parts)
         raise Exception("Reached maximum path part depth!")  
+    
+    def column_to_str_matrix(self, selected_column_indices: list[int], time_type: TimeType) -> list[list[str]]:
+        aggregated = False
+        for index in selected_column_indices:
+            aggregated = aggregated or self.matrix[index].aggregated
+
+        matrix: list[list[str]] = []
+        if len(selected_column_indices) == 0:
+            return []
+        main_index = selected_column_indices[0]
+        main_column = self.matrix[main_index]
+
+        if len(selected_column_indices) == 1:
+            for entry in main_column:
+                row = entry.get_row_iteration_view(main_column.aggregated, time_type)
+                matrix.append(row)
+            return matrix
+        
+        recent_entry = main_column[len(main_column) - 1]
+        matrix.append(recent_entry.get_row_benchmark_view(main_column.aggregated, time_type, recent_entry))
+
+        for i in selected_column_indices[1:]:
+            other_column = self.matrix[i]
+            other_entry = other_column[len(other_column) - 1]
+            matrix.append(other_entry.get_row_benchmark_view(main_column.aggregated, time_type, recent_entry))
+
+        return matrix

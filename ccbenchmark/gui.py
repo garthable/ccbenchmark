@@ -31,33 +31,6 @@ def get_rows(selected_column_indices: list[int], benchmark_data: BenchmarkData) 
         return benchmark_data.iteration_names
     return [benchmark_data.benchmark_names[i] for i in selected_column_indices]
 
-def column_to_str_matrix(selected_column_indices: list[int], benchmark_data: BenchmarkData, time_type: TimeType) -> list[list[str]]:
-    aggregated = False
-    for index in selected_column_indices:
-        aggregated = aggregated or benchmark_data.matrix[index].aggregated
-
-    matrix: list[list[str]] = []
-    if len(selected_column_indices) == 0:
-        return []
-    main_index = selected_column_indices[0]
-    main_column = benchmark_data.matrix[main_index]
-
-    if len(selected_column_indices) == 1:
-        for entry in main_column:
-            row = entry.get_row_iteration_view(main_column.aggregated, time_type)
-            matrix.append(row)
-        return matrix
-    
-    recent_entry = main_column[len(main_column) - 1]
-    matrix.append(recent_entry.get_row_benchmark_view(main_column.aggregated, time_type, recent_entry))
-
-    for i in selected_column_indices[1:]:
-        other_column = benchmark_data.matrix[i]
-        other_entry = other_column[len(other_column) - 1]
-        matrix.append(other_entry.get_row_benchmark_view(main_column.aggregated, time_type, recent_entry))
-
-    return matrix
-
 def data_to_dict(benchmark_data: BenchmarkData) -> dict:
     data_dict = {}
     for i, (col, benchmark_name) in enumerate(zip(benchmark_data.matrix, benchmark_data.benchmark_names)):
@@ -229,7 +202,7 @@ class MainWindow(QMainWindow):
     def modify_table(self):
         columns_names = get_columns(self.selected_indicies, self.benchmark_data)
         row_names = get_rows(self.selected_indicies, self.benchmark_data)
-        table_data = column_to_str_matrix(self.selected_indicies, self.benchmark_data, self.time_type)
+        table_data = self.benchmark_data.column_to_str_matrix(self.selected_indicies, self.time_type)
 
         min_column_count = 30
         min_row_count = 50
