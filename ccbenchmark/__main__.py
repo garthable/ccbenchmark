@@ -18,17 +18,8 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
-try:
-    from ccbenchmark.benchmark_helpers import run_benchmarks, compare_benchmarks
-except ImportError as e:
-    logger.critical(f"Failed to import benchmark_helpers: {e}")
-    sys.exit(99)
-
-try:
-    from ccbenchmark.benchmark_settings import LocalSettings, load_local_settings
-except ImportError as e:
-    logger.critical(f"Failed to import settings: {e}")
-    sys.exit(99)
+from ccbenchmark.benchmark_helpers import run_benchmarks, compare_benchmarks
+from ccbenchmark.benchmark_settings import LocalSettings, load_local_settings
 
 RUN_ACTIONS = {'run', 'r', 'run_and_compare', 'rac'}
 COMPARE_ACTIONS = {'compare', 'c', 'run_and_compare', 'rac'}

@@ -10,18 +10,8 @@ from glob import glob
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
-IMPORT_FAILURE_EXIT_CODE = 99
-
-try:
-    from ccbenchmark.benchmark_data import BenchmarkData
-except ImportError as e:
-    logger.critical(f"Failed to import benchmark_data: {e}")
-    sys.exit(IMPORT_FAILURE_EXIT_CODE)
-try:
-    from ccbenchmark.gui import show_gui
-except ImportError as e:
-    logger.critical(f"Failed to import gui: {e}")
-    sys.exit(IMPORT_FAILURE_EXIT_CODE)
+from ccbenchmark.benchmark_data import BenchmarkData
+from ccbenchmark.gui import show_gui
 
 def get_latest_mtime_in_dir(path: Path) -> float:
     """Gets time of modification in directory"""
