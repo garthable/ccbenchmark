@@ -6,10 +6,10 @@ _local_settings_file = Path('./.ccbenchmark/settings.yaml')
 
 @dataclass
 class LocalSettings:
-    __slots__ = ("bin_directory", "output_directory")
+    __slots__ = ("bin_dirs", "output_dir")
 
-    bin_directory: Path
-    output_directory: Path
+    bin_dirs: list[Path]
+    output_dir: Path
 
 def save_local_settings(settings: LocalSettings):
     with open(_local_settings_file, 'x') as file:
@@ -21,9 +21,11 @@ def load_local_settings() -> LocalSettings | None:
     try:
         with open(_local_settings_file, 'r') as file:
             local_settings_yaml: dict = yaml.safe_load(file)
+            bin_dirs = [Path(bin_dir) for bin_dir in local_settings_yaml['bin_dirs']]
+
             local_settings = LocalSettings(
-                bin_directory=Path(local_settings_yaml['bin_directory']), 
-                output_directory=Path(local_settings_yaml['output_directory'])
+                bin_dirs=bin_dirs, 
+                output_dir=Path(local_settings_yaml['output_dir'])
             )
 
     except FileNotFoundError:

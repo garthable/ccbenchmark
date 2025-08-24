@@ -5,7 +5,7 @@ import re
 import shutil
 from pathlib import Path
 import logging
-import mimetypes
+from glob import glob
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
@@ -121,29 +121,25 @@ def run_single_benchmark(binary_path: Path, output_path: Path) -> int:
 
     return subprocess.call(cmd, stdin=None, stdout=None, stderr=None, shell=False)
 
-def get_bin_paths(benchmark_root_dir: Path) -> list[Path]:
+def get_bin_paths(benchmark_root_dirs: list[Path]) -> list[Path]:
     binaries = []
-    if not benchmark_root_dir.exists():
-        logger.error(f'The benchmark binary root directory "{benchmark_root_dir}" does not exist!')
-        return binaries
-    if not benchmark_root_dir.is_dir():
-        logger.error(f'The benchmark binary root directory "{benchmark_root_dir}" is a file!')
-        return binaries
     
-    for path in benchmark_root_dir.rglob('*'):
-        is_binary = shutil.which(path) is not None
-        if is_binary and path.is_file():
-            binaries.append(path)
+    for benchmark_root_dir in benchmark_root_dirs:
+        for path_str in glob(str(benchmark_root_dir)):
+            path = Path(path_str)
+            is_binary = shutil.which(path) is not None
+            if is_binary and path.is_file():
+                binaries.append(path)
     return binaries
 
-def run_benchmarks(benchmark_root_dir: Path, output_dir: Path, tag: str) -> None:
+def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) -> None:
     """Runs all benchmarks in benchmark.txt"""
 
     if tag != 'recent':
         recent_dir = init_dir(output_dir, 'recent')
     output_dir = init_dir(output_dir, Path(tag))
 
-    binary_paths = get_bin_paths(benchmark_root_dir)
+    binary_paths = get_bin_paths(benchmark_root_dirs)
 
     for binary_path in binary_paths:
         benchmark_name = binary_path.name

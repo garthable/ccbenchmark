@@ -2,9 +2,6 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import QTimer
 from PyQt5 import QtCore, QtGui
 import sys
-from pathlib import Path
-from enum import IntEnum
-import math
 
 from ccbenchmark.benchmark_data import BenchmarkColumn, BenchmarkData, BenchmarkEntry, TimeType, compute_delta_percentage
 from ccbenchmark.util import time_to_str

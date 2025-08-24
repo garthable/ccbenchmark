@@ -63,7 +63,7 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> ExitResul
         return ExitResult.NO_LOCAL_SETTINGS
 
     if args.action in RUN_ACTIONS:
-        run_benchmarks(local_settings.bin_directory, local_settings.output_directory, args.iteration_name)
+        run_benchmarks(local_settings.bin_dirs, local_settings.output_dir, args.iteration_name)
 
     if args.action in COMPARE_ACTIONS:
         try:
@@ -71,7 +71,7 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> ExitResul
         except re.error as e:
             logger.error(f"Invalid regex pattern for compare_name: {e}")
             return ExitResult.INVALID_REGEX
-        compare_benchmarks(local_settings.output_directory, pattern)
+        compare_benchmarks(local_settings.output_dir, pattern)
 
     return ExitResult.SUCCESS
 
