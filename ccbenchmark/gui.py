@@ -6,13 +6,6 @@ import sys
 from ccbenchmark.benchmark_data import BenchmarkColumn, BenchmarkData, BenchmarkEntry, TimeType, compute_delta_percentage
 from ccbenchmark.util import time_to_str
 
-def get_rows(selected_column_indices: list[int], benchmark_data: BenchmarkData) -> list[str]:
-    if len(selected_column_indices) == 0:
-        return []
-    elif len(selected_column_indices) == 1:
-        return benchmark_data.iteration_names
-    return [benchmark_data.benchmark_names[i] for i in selected_column_indices]
-
 def data_to_dict(benchmark_data: BenchmarkData) -> dict:
     data_dict = {}
     for i, (col, benchmark_name) in enumerate(zip(benchmark_data.matrix, benchmark_data.benchmark_names)):
@@ -183,7 +176,7 @@ class MainWindow(QMainWindow):
 
     def modify_table(self):
         columns_names = self.benchmark_data.get_columns(self.selected_indicies)
-        row_names = get_rows(self.selected_indicies, self.benchmark_data)
+        row_names = self.benchmark_data.get_rows(self.selected_indicies)
         table_data = self.benchmark_data.column_to_str_matrix(self.selected_indicies, self.time_type)
 
         min_column_count = 30

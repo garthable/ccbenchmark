@@ -417,3 +417,10 @@ class BenchmarkData:
                     'CV (%)', 'ΔCV (%)']
 
         return columns
+
+    def get_rows(self, selected_column_indices: list[int]) -> list[str]:
+        if len(selected_column_indices) == 0:
+            return []
+        elif len(selected_column_indices) == 1:
+            return self.iteration_names
+        return [self.benchmark_names[i] for i in selected_column_indices]
