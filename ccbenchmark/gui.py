@@ -6,19 +6,6 @@ import sys
 from ccbenchmark.benchmark_data import BenchmarkColumn, BenchmarkData, BenchmarkEntry, TimeType, compute_delta_percentage
 from ccbenchmark.util import time_to_str
 
-def data_to_dict(benchmark_data: BenchmarkData) -> dict:
-    data_dict = {}
-    for i, (col, benchmark_name) in enumerate(zip(benchmark_data.matrix, benchmark_data.benchmark_names)):
-        current_dict = data_dict
-        for part in col.benchmark_bin_path.parts:
-            next_dict: dict | None = data_dict.get(part)
-            if next_dict is None:
-                current_dict[part] = {}
-                next_dict = current_dict[part]
-            current_dict = next_dict
-        current_dict[benchmark_name] = i
-    return data_dict
-
 class StickyMenu(QMenu):
     def mouseReleaseEvent(self, event):
         action = self.actionAt(event.pos())
@@ -167,7 +154,7 @@ class MainWindow(QMainWindow):
         self.tree = QTreeWidget()
         self.tree.model().setHeaderData(0, QtCore.Qt.Horizontal, 'Benchmarks')
         self.tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        data = data_to_dict(self.benchmark_data)
+        data = self.benchmark_data.data_to_dict()
         self.build_tree(self.tree, data)
         return self.tree
     
