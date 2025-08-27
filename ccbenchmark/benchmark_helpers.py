@@ -86,7 +86,6 @@ def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) ->
                 benchmark_data.add_json_file(iteration_index, json_loaded, benchmark_name_to_index)
 
     benchmark_data.establish_common_time_unit()
-    benchmark_data.compute_delta()
     benchmark_data.strip_common_paths()
     show_gui(benchmark_data)
 
