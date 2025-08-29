@@ -24,7 +24,7 @@ def parse(
         json_file: dict, 
         benchmark_name_to_index: dict[(Path, str), int], 
         benchmark_bin_path: Path
-    ) -> Generator[ParseResult]:
+    ) -> Generator[ParseResult, None, None]:
 
     """Adds json file to BenchmarkData"""
     try:
@@ -64,17 +64,17 @@ def parse(
         cpu_time = BenchmarkTime(cpu_time_value, time_unit)
 
         if repetitions == 1 and run_type == 'iteration':
-            yield ParseResult(real_time, cpu_time, benchmark_index, MetricIndices.Time, aggregated=False)
+            yield ParseResult(real_time, cpu_time, benchmark_index, MetricIndices.Time.value, aggregated=False)
             continue
 
         if run_type == 'aggregate':
             aggregate_name = benchmark['aggregate_name']
             if aggregate_name == 'mean':
-                yield ParseResult(real_time, cpu_time, benchmark_index, MetricIndices.Mean, aggregated=True)
+                yield ParseResult(real_time, cpu_time, benchmark_index, MetricIndices.Mean.value, aggregated=True)
             elif aggregate_name == 'median':
-                yield ParseResult(real_time, cpu_time, benchmark_index, MetricIndices.Median, aggregated=True)
+                yield ParseResult(real_time, cpu_time, benchmark_index, MetricIndices.Median.value, aggregated=True)
             elif aggregate_name == 'stddev':
-                yield ParseResult(real_time, cpu_time, benchmark_index, MetricIndices.Stddev, aggregated=True)
+                yield ParseResult(real_time, cpu_time, benchmark_index, MetricIndices.Stddev.value, aggregated=True)
             elif aggregate_name == 'cv':
                 real_time.time_unit = TimeUnit.PERCENTAGE
                 real_time.time_value *= 100.0
@@ -82,6 +82,6 @@ def parse(
                 cpu_time.time_unit = TimeUnit.PERCENTAGE
                 cpu_time.time_value *= 100.0
 
-                yield ParseResult(real_time, cpu_time, benchmark_index, MetricIndices.CV, aggregated=True)
+                yield ParseResult(real_time, cpu_time, benchmark_index, MetricIndices.CV.value, aggregated=True)
             else:
                 logger.warning(f"Unknown aggregate_name: {run_type}")
