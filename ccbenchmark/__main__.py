@@ -111,3 +111,6 @@ def entrypoint():
         logger.debug("Verbose mode enabled.")
 
     sys.exit(main(args, parser))
+
+if __name__ == '__main__':
+    entrypoint()
