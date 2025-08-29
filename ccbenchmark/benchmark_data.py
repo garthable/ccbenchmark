@@ -1,5 +1,5 @@
 from enum import IntEnum, StrEnum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 import logging
 from pathlib import Path
@@ -30,14 +30,14 @@ class BenchmarkTime:
     time_unit: TimeUnit | None
     
     def __str__(self) -> str:
-        return f'{self.time_value:.2F} {self.time_unit}' if self.time_value else 'N/A'
+        return f'{self.time_value:.2F} {self.time_unit}' if self.time_value is not None else 'N/A'
 
 def convert_time(benchmark_time: BenchmarkTime, time_unit: TimeUnit) -> BenchmarkTime:
+    if benchmark_time.time_unit is None or benchmark_time.time_unit is TimeUnit.PERCENTAGE or time_unit is None:
+        return benchmark_time
+    
     assert type(benchmark_time) is BenchmarkTime, f'Type Error! type(benchmark_time) is {type(benchmark_time).__name__}'
     assert type(time_unit) is TimeUnit, f'Type Error! type(time_unit) is {type(time_unit).__name__}'
-
-    if benchmark_time.time_unit is None or benchmark_time.time_unit is TimeUnit.PERCENTAGE:
-        return benchmark_time
     
     time_unit_to_exponent = {TimeUnit.NS: 0, TimeUnit.US: 3, TimeUnit.MS: 6, TimeUnit.S: 9}
 
@@ -56,6 +56,10 @@ def convert_time(benchmark_time: BenchmarkTime, time_unit: TimeUnit) -> Benchmar
 
 def compare(other_time: BenchmarkTime, base_time: BenchmarkTime, func: Callable[[BenchmarkTime, BenchmarkTime], BenchmarkTime]) -> BenchmarkTime:
     converted_other_time = convert_time(other_time, base_time.time_unit)
+    if not converted_other_time or not base_time:
+        return BenchmarkTime(None, None)
+    if not converted_other_time.time_value or not base_time.time_value:
+        return BenchmarkTime(None, None)
     return func(converted_other_time, base_time)
 
 def compute_delta_percentage(other_time: BenchmarkTime, base_time: BenchmarkTime) -> BenchmarkTime:
@@ -66,6 +70,7 @@ def compute_delta_percentage(other_time: BenchmarkTime, base_time: BenchmarkTime
         TimeUnit.PERCENTAGE
     )
 
+
 @dataclass(slots=True)
 class BenchmarkSegment:
     real_time: BenchmarkTime
@@ -74,11 +79,13 @@ class BenchmarkSegment:
     cpu_time: BenchmarkTime
     cpu_time_comparisons: list[BenchmarkTime]
 
-    def segment_str(self, time_type: TimeType) -> list[str]:
+    def segment_str(self, time_type: TimeType, min_amount: int) -> list[str]:
         if time_type is TimeType.CPU:
-            return [str(self.cpu_time)] + [str(cpu_time) for cpu_time in self.cpu_time_comparisons]
+            segment_str = [str(self.cpu_time)] + [str(cpu_time) for cpu_time in self.cpu_time_comparisons]
         else:
-            return [str(self.real_time)] + [str(real_time) for real_time in self.real_time_comparisons]
+            segment_str = [str(self.real_time)] + [str(real_time) for real_time in self.real_time_comparisons]
+        extra_elements = max(0, min_amount - len(segment_str))
+        return segment_str + [str(BenchmarkTime(None, None)) for _ in range(extra_elements)]
 
 @dataclass(init=False, slots=True)
 class BenchmarkIterations:
@@ -110,13 +117,18 @@ class BenchmarkIterations:
     def iteration_count(self) -> int:
         return len(self.times)
 
+@dataclass(slots=True)
+class MetricName:
+    name: str
+    name_comparisons: list[str] = field(default_factory=lambda: [])
+
 @dataclass(init=False, slots=True)
 class BenchmarkData:
     benchmark_names: list[str]
     iteration_names: list[str]
     benchmarks: list[BenchmarkIterations]
     parser: Parser
-    metric_names: list[list[str]]
+    metric_names: list[MetricName]
 
     def __init__(self, benchmark_names: list[str], iteration_names: list[str]):
         self.benchmark_names: list[str] = benchmark_names
@@ -125,8 +137,8 @@ class BenchmarkData:
 
         self.parser = cast(Parser, importlib.import_module('ccbenchmark.parsers.cpp.google_benchmark'))
 
-        metric_names = self.parser.AGGREGATED_METRICS + self.parser.NON_AGGREGATED_METRICS
-        self.metric_names: list[list[str]] = [[metric_name] for metric_name in metric_names]
+        metric_names = self.parser.NON_AGGREGATED_METRICS + self.parser.AGGREGATED_METRICS
+        self.metric_names: list[MetricName] = [MetricName(metric_name) for metric_name in metric_names]
         iteration_count = len(self.iteration_names)
         metric_count = len(metric_names)
 
@@ -203,20 +215,26 @@ class BenchmarkData:
         ) -> None:
         """Computes percentage change between iterations."""
         self.reset(time_type)
+        time_unit: TimeUnit | None = None
         for benchmark in self.benchmarks:
-            for index, _ in enumerate(benchmark.times, start=1):
-                prev_metrics = benchmark.times[index - 1]
-                metrics = benchmark.times[index]
+            for index, _ in enumerate(benchmark.times[1:], start=1):
+                assert index < len(benchmark.times), f'{index} < {len(benchmark.times)}'
 
-                for metric, prev_metric in zip(metrics, prev_metrics):
+                for metric, prev_metric in zip(benchmark.times[index], benchmark.times[index - 1]):
                     time = metric.cpu_time if time_type is TimeType.CPU else metric.real_time
                     base_time = prev_metric.cpu_time if time_type is TimeType.CPU else prev_metric.real_time
 
-                    comparison_time = comparison_func(time, base_time)
+                    time_unit = time_unit or base_time.time_unit
+
+                    comparison_time = compare(time, base_time, comparison_func)
                     if time_type is TimeType.CPU:
                         metric.cpu_time_comparisons.append(comparison_time)
                     else:
                         metric.real_time_comparisons.append(comparison_time)
+                    assert \
+                        len(metric.cpu_time_comparisons) > 0 or \
+                        len(metric.real_time_comparisons) > 0, \
+                        f'append did not occur! cpu: {metric.cpu_time_comparisons} real: {metric.real_time_comparisons}'
 
     def compare_recent_iterations(self,
             comparison_func: Callable[[BenchmarkTime, BenchmarkTime], BenchmarkTime],
@@ -225,20 +243,23 @@ class BenchmarkData:
         ) -> None:
         assert len(selected_benchmark_indicies) != 0
         self.reset(time_type)
-
+        time_unit: TimeUnit | None = None
+        
         base_index = selected_benchmark_indicies[0]
         base_benchmark = self.benchmarks[base_index].recent
         for benchmark_index in selected_benchmark_indicies[1:]:
             benchmark = self.benchmarks[benchmark_index].recent
-            for metric, base_metric in zip(benchmark, base_benchmark):
+            for i, (metric, base_metric) in enumerate(zip(benchmark, base_benchmark)):
                 time = metric.cpu_time if time_type is TimeType.CPU else metric.real_time
                 base_time = base_metric.cpu_time if time_type is TimeType.CPU else base_metric.real_time
 
-                comparison_time = comparison_func(time, base_time)
+                time_unit = time_unit or base_time.time_unit
+
+                comparison_time = compare(time, base_time, comparison_func)
                 if time_type is TimeType.CPU:
-                    metric.cpu_time_comparisons.append(comparison_time)
+                    benchmark[i].cpu_time_comparisons.append(comparison_time)
                 else:
-                    metric.real_time_comparisons.append(comparison_time)
+                    benchmark[i].real_time_comparisons.append(comparison_time)
 
     def strip_common_paths(self) -> None:
         paths = [benchmark.bin_path for benchmark in self.benchmarks]
@@ -261,6 +282,28 @@ class BenchmarkData:
                 paths[j] = Path(*parts)
         raise Exception("Reached maximum path part depth!")  
     
+    @property
+    def aggregated_length(self) -> int:
+        return len(self.parser.AGGREGATED_METRICS)
+
+    @property
+    def non_aggregated_length(self) -> int:
+        return len(self.parser.NON_AGGREGATED_METRICS)
+
+    def update(self, selected_column_indices: list[int], time_type: TimeType):
+        if len(selected_column_indices) == 0:
+            return
+        if len(selected_column_indices) == 1:
+            for metric_name in self.metric_names:
+                metric_name.name_comparisons = [f'Δ{metric_name.name} ()']
+            self.compare_neighboring_iterations(compute_delta_percentage, time_type)
+            return
+        
+        base_index = selected_column_indices[0]
+        for metric_name in self.metric_names:
+            metric_name.name_comparisons = [f'Δ{metric_name.name}@{self.benchmark_names[base_index]} ()']
+        self.compare_recent_iterations(compute_delta_percentage, selected_column_indices, time_type)
+
     def column_to_str_matrix(self, selected_column_indices: list[int], time_type: TimeType) -> list[list[str]]:
         aggregated = False
         for index in selected_column_indices:
@@ -272,6 +315,14 @@ class BenchmarkData:
         main_index = selected_column_indices[0]
         main_benchmark = self.benchmarks[main_index]
 
+        if aggregated:
+            metric_count = len(self.metric_names[self.non_aggregated_length:])
+        else:
+            metric_count = len(self.metric_names[:self.non_aggregated_length])
+
+        items_per_comparison = max(len(name.name_comparisons) + 1 for name in self.metric_names)
+        min_elements = items_per_comparison * metric_count
+
         def get_row(entry: list[BenchmarkSegment]) -> list[str]:
             aggregated_len = len(self.parser.AGGREGATED_METRICS)
             non_aggregated_len = len(self.parser.NON_AGGREGATED_METRICS)
@@ -280,7 +331,10 @@ class BenchmarkData:
             non_aggregated_range = range(non_aggregated_len)
 
             segment_indicies = non_aggregated_range if not aggregated else aggregated_range
-            return [val for i in segment_indicies for val in entry[i].segment_str(time_type)]
+            row = [val for i in segment_indicies for val in entry[i].segment_str(time_type, items_per_comparison)]
+            row += ['N/A' for _ in range(max(0, min_elements - len(row)))]
+            assert len(row) == min_elements, f'Mismatch in elements! len({row}) != {min_elements}'
+            return row
 
         if len(selected_column_indices) == 1:
             for entry in main_benchmark.times:
@@ -290,6 +344,7 @@ class BenchmarkData:
                     assert type(val) is str, f'val is {type(val).__name__}'
                 matrix.append(row)
             return matrix
+        
         
         recent_entry = main_benchmark.recent
         matrix.append(get_row(recent_entry))
@@ -308,10 +363,15 @@ class BenchmarkData:
         for index in selected_column_indices:
             aggregated = aggregated or self.benchmarks[index].aggregated
 
-        if not aggregated:
-            columns = self.parser.NON_AGGREGATED_METRICS
-        else:
-            columns = self.parser.AGGREGATED_METRICS
+        non_aggregated_len = len(self.parser.NON_AGGREGATED_METRICS)
+        aggregated_len = len(self.parser.AGGREGATED_METRICS)
+
+        non_aggregated_range = range(non_aggregated_len)
+        aggregated_range = range(non_aggregated_len, non_aggregated_len + aggregated_len)
+
+        columns = []
+        for i in aggregated_range if aggregated else non_aggregated_range:
+            columns += [self.metric_names[i].name] + self.metric_names[i].name_comparisons
 
         return columns
 
