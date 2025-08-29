@@ -7,4 +7,4 @@ class Parser(Protocol):
     AGGREGATED_METRICS: list[str]
 
     get_executable_path: Callable[[dict], Path]
-    parse: Callable[[dict, dict[(Path, str), int], Path], Generator[ParseResult]]
+    parse: Callable[[dict, dict[(Path, str), int], Path], Generator[ParseResult, None, None]]
