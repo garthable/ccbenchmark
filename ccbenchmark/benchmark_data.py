@@ -147,12 +147,16 @@ class BenchmarkData:
     
     def add_json_file(self, iteration_index: int, json_file: dict, benchmark_name_to_index: dict[tuple[Path, str], int]) -> None:
         """Adds json file to BenchmarkData"""
-        benchmark_bin_path: Path = self.parser.get_executable_path(json_file)
+        benchmark_bin_path: Path = self.parser.get_benchmark_path(json_file)
 
-        for parse_result in self.parser.parse(json_file, benchmark_name_to_index, benchmark_bin_path):
-            assert parse_result.benchmark_index < len(self.benchmarks), f'Benchmark Index is out of bounds. {parse_result.benchmark_index} < {len(self.benchmarks)}'
+        for parse_result in self.parser.parse(json_file):
+            if parse_result.benchmark_id not in benchmark_name_to_index:
+                continue
+            
+            benchmark_index = benchmark_name_to_index[parse_result.benchmark_id]
+            assert benchmark_index < len(self.benchmarks), f'Benchmark Index is out of bounds. {benchmark_index} < {len(self.benchmarks)}'
 
-            iterations = self.benchmarks[parse_result.benchmark_index]
+            iterations = self.benchmarks[benchmark_index]
             iterations.bin_path = benchmark_bin_path
 
             iterations.aggregated = parse_result.aggregated
