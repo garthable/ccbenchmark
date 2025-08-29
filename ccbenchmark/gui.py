@@ -3,7 +3,7 @@ from PyQt5.QtCore import QTimer
 from PyQt5 import QtCore, QtGui
 import sys
 
-from ccbenchmark.benchmark_data import BenchmarkColumn, BenchmarkData, BenchmarkEntry, TimeType, compute_delta_percentage
+from ccbenchmark.benchmark_data import BenchmarkData, TimeType, compute_delta_percentage
 from ccbenchmark.util import time_to_str
 
 class StickyMenu(QMenu):
@@ -162,6 +162,8 @@ class MainWindow(QMainWindow):
         return self.tree.selectionModel()
 
     def modify_table(self):
+        self.benchmark_data.update(self.selected_indicies, self.time_type)
+
         columns_names = self.benchmark_data.get_columns(self.selected_indicies)
         row_names = self.benchmark_data.get_rows(self.selected_indicies)
         table_data = self.benchmark_data.column_to_str_matrix(self.selected_indicies, self.time_type)
@@ -192,6 +194,8 @@ class MainWindow(QMainWindow):
             for j in range(row_count):
                 if len(table_data) != 0 and i < len(table_data[0]) and j < len(table_data):
                     text = table_data[j][i]
+                    assert type(text) is str, f'text is {type(text).__name__}, at table_data[{j}][{i}]'
+                    assert len(columns_names) == len(table_data[0]), f'len({columns_names}) != len({table_data[0]})'
                     
                     item = QTableWidgetItem(text)
                     
@@ -200,6 +204,7 @@ class MainWindow(QMainWindow):
                     default_color = self.table.palette().color(QtGui.QPalette.Text)
 
                     def get_color() -> QtGui.QColor:
+                        assert i < len(columns_names), f'array: {columns_names} index: {i}'
                         col_name = columns_names[i]
                         text_split = text.split(' ')
                         if len(text_split) == 0:
