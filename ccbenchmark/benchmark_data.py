@@ -92,6 +92,7 @@ class BenchmarkIterations:
     times: list[list[BenchmarkSegment]]
     bin_path: Path | None
     aggregated: Path | None
+    recent_index: int | None
 
     def __init__(self, metric_count: int, iteration_count: int, bin_path: Path | None, aggregated: bool):
         self.times: list[list[BenchmarkSegment]] = [
@@ -104,10 +105,18 @@ class BenchmarkIterations:
         ]
         self.bin_path: Path | None = bin_path
         self.aggregated: bool = aggregated
+        self.recent_index = None
 
     @property
     def recent(self) -> list[BenchmarkSegment]:
-        return self.times[len(self.times) - 1]
+        if self.recent_index is None:
+            for i, row in reversed(list(enumerate(self.times))):
+                if not all(entry.cpu_time.time_value is None and entry.real_time.time_value is None for entry in row):
+                    self.recent_index = i
+                    break
+            assert self.recent_index is not None, f'Cannot find valid recent index for {self.bin_path}'
+
+        return self.times[self.recent_index]
     
     @property
     def metric_count(self) -> int:
@@ -129,31 +138,37 @@ class BenchmarkData:
     benchmarks: list[BenchmarkIterations]
     parser: Parser
     metric_names: list[MetricName]
+    benchmark_name_to_index: dict[(Path, str), int]
 
-    def __init__(self, benchmark_names: list[str], iteration_names: list[str]):
-        self.benchmark_names: list[str] = benchmark_names
+    def __init__(self, iteration_names: list[str]):
+        self.benchmark_names: list[str] = []
         self.iteration_names: list[str] = iteration_names
         self.benchmarks: list[BenchmarkIterations] = []
+        self.benchmark_name_to_index: dict[(Path, str), int] = {}
 
         self.parser = cast(Parser, importlib.import_module('ccbenchmark.parsers.cpp.google_benchmark'))
 
         metric_names = self.parser.NON_AGGREGATED_METRICS + self.parser.AGGREGATED_METRICS
         self.metric_names: list[MetricName] = [MetricName(metric_name) for metric_name in metric_names]
-        iteration_count = len(self.iteration_names)
-        metric_count = len(metric_names)
-
-        for _ in range(len(benchmark_names)):
-            self.benchmarks.append(BenchmarkIterations(metric_count, iteration_count, None, False))
     
-    def add_json_file(self, iteration_index: int, json_file: dict, benchmark_name_to_index: dict[tuple[Path, str], int]) -> None:
+    def add_json_file(self, iteration_index: int, json_file: dict) -> None:
         """Adds json file to BenchmarkData"""
         benchmark_bin_path: Path = self.parser.get_benchmark_path(json_file)
 
+        metric_count = len(self.metric_names)
+        iteration_count = len(self.iteration_names)
+
         for parse_result in self.parser.parse(json_file):
-            if parse_result.benchmark_id not in benchmark_name_to_index:
-                continue
+            benchmark_id = (benchmark_bin_path, parse_result.name)
+            if benchmark_id not in self.benchmark_name_to_index:
+                benchmark_index = len(self.benchmarks)
+                self.benchmark_name_to_index[benchmark_id] = benchmark_index
+                benchmark = BenchmarkIterations(metric_count, iteration_count, benchmark_bin_path, False)
+                self.benchmarks.append(benchmark)
+                self.benchmark_names.append(parse_result.name)
+            else:
+                benchmark_index = self.benchmark_name_to_index[benchmark_id]
             
-            benchmark_index = benchmark_name_to_index[parse_result.benchmark_id]
             assert benchmark_index < len(self.benchmarks), f'Benchmark Index is out of bounds. {benchmark_index} < {len(self.benchmarks)}'
 
             iterations = self.benchmarks[benchmark_index]
@@ -167,6 +182,18 @@ class BenchmarkData:
             segment = iterations.times[iteration_index][parse_result.metric_index]
             segment.cpu_time = parse_result.cpu_time
             segment.real_time = parse_result.real_time
+
+    def validate(self) -> None:
+        assert len(self.benchmarks) == len(self.benchmark_names), f'len({self.benchmarks} != len({self.benchmark_names}))'
+        for benchmark, name in zip(self.benchmarks, self.benchmark_names):
+            assert benchmark.bin_path is not None
+            assert \
+                not all(entry.cpu_time.time_value is None and entry.real_time.time_value is None for row in benchmark.times for entry in row),\
+                f'{name} is empty!'
+            
+            assert \
+                not all(entry.cpu_time.time_value is None and entry.real_time.time_value is None for entry in benchmark.recent),\
+                f'{name} recent is empty!'
 
     def establish_common_time_unit(self) -> None:
         self._establish_common_time_unit(time_type=TimeType.CPU)
@@ -390,8 +417,9 @@ class BenchmarkData:
         data_dict = {}
         for i, (benchmark, benchmark_name) in enumerate(zip(self.benchmarks, self.benchmark_names)):
             current_dict = data_dict
+            assert benchmark.bin_path is not None
             for part in benchmark.bin_path.parts:
-                next_dict: dict | None = data_dict.get(part)
+                next_dict: dict | None = current_dict.get(part)
                 if next_dict is None:
                     current_dict[part] = {}
                     next_dict = current_dict[part]
