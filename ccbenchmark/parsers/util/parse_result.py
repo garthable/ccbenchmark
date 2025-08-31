@@ -8,7 +8,7 @@ class ParseResult:
     real_time: bd.BenchmarkTime
     cpu_time: bd.BenchmarkTime
 
-    benchmark_id: Any
+    name: str
     metric_index: int
 
     aggregated: bool

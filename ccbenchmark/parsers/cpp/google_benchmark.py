@@ -27,8 +27,6 @@ def parse(json_file: dict) -> Generator[ParseResult, None, None]:
     except KeyError:
         logger.warning(f"Missing 'benchmarks' in JSON file. Failed to add JSON file.")
         return
-    
-    benchmark_bin_path = get_benchmark_path(json_file)
 
     for benchmark in benchmarks:
         class SkipBenchmark(Exception):
@@ -52,26 +50,21 @@ def parse(json_file: dict) -> Generator[ParseResult, None, None]:
         except SkipBenchmark:
             continue
 
-        benchmark_id = (benchmark_bin_path, name)
-        if benchmark_id is None:
-            logger.debug(f"{name} not found in benchmark_name_to_index")
-            continue
-
         real_time = BenchmarkTime(real_time_value, time_unit)
         cpu_time = BenchmarkTime(cpu_time_value, time_unit)
 
         if repetitions == 1 and run_type == 'iteration':
-            yield ParseResult(real_time, cpu_time, benchmark_id, MetricIndices.Time.value, aggregated=False)
+            yield ParseResult(real_time, cpu_time, name, MetricIndices.Time.value, aggregated=False)
             continue
 
         if run_type == 'aggregate':
             aggregate_name = benchmark['aggregate_name']
             if aggregate_name == 'mean':
-                yield ParseResult(real_time, cpu_time, benchmark_id, MetricIndices.Mean.value, aggregated=True)
+                yield ParseResult(real_time, cpu_time, name, MetricIndices.Mean.value, aggregated=True)
             elif aggregate_name == 'median':
-                yield ParseResult(real_time, cpu_time, benchmark_id, MetricIndices.Median.value, aggregated=True)
+                yield ParseResult(real_time, cpu_time, name, MetricIndices.Median.value, aggregated=True)
             elif aggregate_name == 'stddev':
-                yield ParseResult(real_time, cpu_time, benchmark_id, MetricIndices.Stddev.value, aggregated=True)
+                yield ParseResult(real_time, cpu_time, name, MetricIndices.Stddev.value, aggregated=True)
             elif aggregate_name == 'cv':
                 real_time.time_unit = TimeUnit.PERCENTAGE
                 real_time.time_value *= 100.0
@@ -79,6 +72,6 @@ def parse(json_file: dict) -> Generator[ParseResult, None, None]:
                 cpu_time.time_unit = TimeUnit.PERCENTAGE
                 cpu_time.time_value *= 100.0
 
-                yield ParseResult(real_time, cpu_time, benchmark_id, MetricIndices.CV.value, aggregated=True)
+                yield ParseResult(real_time, cpu_time, name, MetricIndices.CV.value, aggregated=True)
             else:
                 logger.warning(f"Unknown aggregate_name: {run_type}")
