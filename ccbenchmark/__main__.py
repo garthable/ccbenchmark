@@ -19,7 +19,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
 from ccbenchmark.benchmark_helpers import run_benchmarks, compare_benchmarks
-from ccbenchmark.benchmark_settings import LocalSettings, load_local_settings
+import ccbenchmark.benchmark_settings as settings
+import ccbenchmark.benchmark_framework as framework
 
 RUN_ACTIONS = {'run', 'r', 'run_and_compare', 'rac'}
 COMPARE_ACTIONS = {'compare', 'c', 'run_and_compare', 'rac'}
@@ -48,13 +49,15 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> ExitResul
         logger.error(f"Error: Working directory {working_dir} does not exist or is not a directory.")
         return ExitResult.INVALID_WORKDIR
     
-    local_settings = load_local_settings()
-    if local_settings is None:
+    settings.load_local_settings()
+    if settings.local_settings is None:
         logger.error(f"Error: No local settings found!")
         return ExitResult.NO_LOCAL_SETTINGS
+    
+    framework.import_framework()
 
     if args.action in RUN_ACTIONS:
-        run_benchmarks(local_settings.bin_dirs, local_settings.output_dir, args.iteration_name)
+        run_benchmarks(settings.local_settings.bin_dirs, settings.local_settings.output_dir, args.iteration_name)
 
     if args.action in COMPARE_ACTIONS:
         try:
@@ -62,7 +65,7 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> ExitResul
         except re.error as e:
             logger.error(f"Invalid regex pattern for compare_name: {e}")
             return ExitResult.INVALID_REGEX
-        compare_benchmarks(local_settings.output_dir, pattern)
+        compare_benchmarks(settings.local_settings.output_dir, pattern)
 
     return ExitResult.SUCCESS
 
