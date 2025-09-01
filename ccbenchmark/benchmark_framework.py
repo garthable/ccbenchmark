@@ -8,7 +8,8 @@ from io import TextIOWrapper
 class Framework(Protocol):
     NON_AGGREGATED_METRICS: list[str]
     AGGREGATED_METRICS: list[str]
-    OUTPUT_SUFFIX: str
+
+    SUPPORTED_FORMATS: set[str]
 
     run_single_benchmark: Callable[[Path, Path], int]
     parse: Callable[[TextIOWrapper, Path], Generator[ParseResult, None, None]]
@@ -25,8 +26,10 @@ def import_framework() -> None:
     assert hasattr(framework, 'AGGREGATED_METRICS')
     assert isinstance(framework.AGGREGATED_METRICS, list)
 
-    assert hasattr(framework, 'OUTPUT_SUFFIX')
-    assert isinstance(framework.OUTPUT_SUFFIX, str)
+    assert hasattr(framework, 'SUPPORTED_FORMATS')
+    assert isinstance(framework.SUPPORTED_FORMATS, set)
+
+    assert settings.local_settings.output_format in framework.SUPPORTED_FORMATS
 
     assert hasattr(framework, 'run_single_benchmark')
     assert isinstance(framework.run_single_benchmark, Callable)
