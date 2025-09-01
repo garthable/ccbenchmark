@@ -9,6 +9,7 @@ class LocalSettings:
     bin_dirs: list[Path] = field(default_factory=lambda: [])
     output_dir: Path = field(default_factory=lambda: Path())
     framework: str = field(default_factory=lambda: '')
+    output_format: str = field(default_factory=lambda: '')
 
 local_settings: LocalSettings = None
 
@@ -27,7 +28,8 @@ def load_local_settings() -> None:
             local_settings = LocalSettings(
                 bin_dirs=bin_dirs, 
                 output_dir=Path(local_settings_yaml['output_dir']),
-                framework=local_settings_yaml['framework']
+                framework=local_settings_yaml['framework'],
+                output_format=local_settings_yaml['output_format']
             )
 
     except FileNotFoundError:
