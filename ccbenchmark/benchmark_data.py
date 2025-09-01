@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 import logging
 from pathlib import Path
-from ccbenchmark.util import time_to_str
+from ccbenchmark.util import strip_common_paths
 import math
 from copy import deepcopy
 from typing import Callable, cast
@@ -292,24 +292,9 @@ class BenchmarkData:
 
     def strip_common_paths(self) -> None:
         paths = [benchmark.bin_path for benchmark in self.benchmarks]
-        max_iterations = min([len(path.parts) for path in paths])
-
-        for _ in range(max_iterations):
-            common_part = None
-            for path in paths:
-                assert(len(path.parts) != 0)
-                part = path.parts[0]
-                if common_part is None:
-                    common_part = part
-                elif common_part != part:
-                    for i, _ in enumerate(self.benchmarks):
-                        self.benchmarks[i].bin_path = paths[i]
-                    return
-
-            for j in range(len(paths)):
-                parts = paths[j].parts[1:]
-                paths[j] = Path(*parts)
-        raise Exception("Reached maximum path part depth!")  
+        paths = strip_common_paths(paths)
+        for i, _ in enumerate(self.benchmarks):
+            self.benchmarks[i].bin_path = paths[i]
     
     @property
     def aggregated_length(self) -> int:
