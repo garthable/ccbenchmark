@@ -1,7 +1,10 @@
 from typing import Generator, Any
+from io import TextIOWrapper
 from pathlib import Path
 import logging
 import subprocess
+
+import json
 
 from ccbenchmark.benchmark_data import BenchmarkTime, TimeUnit
 from ccbenchmark.frameworks.util.default_metrics import (
@@ -25,10 +28,18 @@ def run_single_benchmark(binary_path: Path, output_path: Path) -> int:
 
     return subprocess.call(cmd, stdin=None, stdout=None, stderr=None, shell=False)
 
-def parse(json_file: dict) -> Generator[ParseResult, None, None]:
+def parse(read_file: TextIOWrapper, file_path: Path) -> Generator[ParseResult, None, None]:
+    if file_path.suffix == '.json':
+        json_content: dict = json.load(read_file)
+        for parse_result in parse_json(json_content):
+            yield parse_result
+    else:
+        raise NotImplementedError
+
+def parse_json(json_contents: dict) -> Generator[ParseResult, None, None]:
     """Adds json file to BenchmarkData"""
     try:
-        benchmarks = json_file['benchmarks']
+        benchmarks = json_contents['benchmarks']
     except KeyError:
         logger.warning(f"Missing 'benchmarks' in JSON file. Failed to add JSON file.")
         return
