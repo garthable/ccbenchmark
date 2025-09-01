@@ -11,6 +11,7 @@ from ccbenchmark.benchmark_data import BenchmarkData
 from ccbenchmark.gui import show_gui
 from ccbenchmark.util import strip_common_paths
 import ccbenchmark.benchmark_framework as framework
+import ccbenchmark.benchmark_settings as settings
 
 def get_latest_mtime_in_dir(path: Path) -> float:
     """Gets time of modification in directory"""
@@ -53,11 +54,7 @@ def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) ->
         for file_path in iteration_path.iterdir():
             with open(file_path, 'r', encoding='locale') as file_stream:
                 benchmark_path = iteration_path.parent / file_path.name.split('.')[0]
-                try:
-                    benchmark_data.add_file(iteration_index, file_stream, file_path, benchmark_path)
-                except Exception as e:
-                    logger.warning(f'Could not parse file {file_path} in framework {framework.framework.__name__} with exception {e}')
-                    continue
+                benchmark_data.add_file(iteration_index, file_stream, file_path, benchmark_path)
     
     benchmark_data.validate()
     benchmark_data.establish_common_time_unit()
@@ -75,6 +72,12 @@ def get_bin_paths(benchmark_root_dirs: list[Path]) -> list[Path]:
                 binaries.append(path)
     return binaries
 
+def remove_similiar_files(dir: Path, file_name: Path) -> None:
+    for path in dir.glob(f'{str(file_name.with_suffix(''))}.*'):
+        if path.suffix == file_name.suffix:
+            continue
+        path.unlink(missing_ok=True)
+
 def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) -> None:
     """Runs all benchmarks in benchmark.txt"""
     binary_paths = get_bin_paths(benchmark_root_dirs)
@@ -87,7 +90,11 @@ def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) 
 
         logger.info(f'Running benchmark: {benchmark_name}')
 
-        result = framework.framework.run_single_benchmark(binary_path, output_path / f'{benchmark_name}{framework.framework.OUTPUT_SUFFIX}')
+        file_name = Path(f'{benchmark_name}.{settings.local_settings.output_format}')
+        output_location = output_path / file_name
+
+        result = framework.framework.run_single_benchmark(binary_path, output_location)
+        remove_similiar_files(output_path, file_name)
         
         if result != 0:
             logger.warning(f'{benchmark_name}: Exited with code: {result}')
@@ -97,8 +104,9 @@ def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) 
         if tag != 'recent':
             recent_path = output_path.parent / '_iter_recent'
             recent_path.mkdir(parents=True, exist_ok=True)
-            dest_path = recent_path / f'{benchmark_name}{framework.framework.OUTPUT_SUFFIX}'
-            shutil.copy(output_path / f'{benchmark_name}{framework.framework.OUTPUT_SUFFIX}', dest_path)
+            dest_path = recent_path / file_name
+            shutil.copy(output_location, dest_path)
+            remove_similiar_files(recent_path, file_name)
             # Updates mtime of file for freshness sorting.
             dest_path.touch()
             logger.debug(f"Copied result to recent: {dest_path}")
