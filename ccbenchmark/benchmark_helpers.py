@@ -1,4 +1,3 @@
-import json
 import re
 import shutil
 from pathlib import Path
@@ -51,16 +50,14 @@ def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) ->
         name = iteration_path.name[len('_iter_'):]
         iteration_index = iteration_names_to_index[name]
         assert iteration_path.is_dir(), f'{iteration_path} is not a directory.'
-        for json_file_path in iteration_path.iterdir():
-            assert json_file_path.suffix == '.json', f'ERROR: None Json File: {json_file_path}'
-            with open(json_file_path, 'r', encoding='utf-8') as json_file:
+        for file_path in iteration_path.iterdir():
+            with open(file_path, 'r', encoding='locale') as file_stream:
+                benchmark_path = iteration_path.parent / file_path.name.split('.')[0]
                 try:
-                    json_loaded = json.load(json_file)
-                except json.JSONDecodeError as e:
-                    logger.warning(f'Invalid JSON in {json_file_path}: {e}')
+                    benchmark_data.add_file(iteration_index, file_stream, file_path, benchmark_path)
+                except Exception as e:
+                    logger.warning(f'Could not parse file {file_path} in framework {framework.framework.__name__} with exception {e}')
                     continue
-                path = iteration_path.parent / json_file_path.name.split('.')[0]
-                benchmark_data.add_file(iteration_index, json_loaded, path)
     
     benchmark_data.validate()
     benchmark_data.establish_common_time_unit()
