@@ -1,6 +1,4 @@
 import json
-import sys
-import subprocess
 import re
 import shutil
 from pathlib import Path
@@ -13,6 +11,7 @@ logger = logging.getLogger()
 from ccbenchmark.benchmark_data import BenchmarkData
 from ccbenchmark.gui import show_gui
 from ccbenchmark.util import strip_common_paths
+import ccbenchmark.benchmark_framework as framework
 
 def get_latest_mtime_in_dir(path: Path) -> float:
     """Gets time of modification in directory"""
@@ -61,23 +60,12 @@ def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) ->
                     logger.warning(f'Invalid JSON in {json_file_path}: {e}')
                     continue
                 path = iteration_path.parent / json_file_path.name.split('.')[0]
-                benchmark_data.add_json_file(iteration_index, json_loaded, path)
+                benchmark_data.add_file(iteration_index, json_loaded, path)
     
     benchmark_data.validate()
     benchmark_data.establish_common_time_unit()
     benchmark_data.strip_common_paths()
     show_gui(benchmark_data)
-
-def run_single_benchmark(binary_path: Path, output_path: Path) -> int:
-    """Runs a single benchmark binary and writes output to the given path."""
-    cmd = [
-        binary_path, 
-        f'--benchmark_out={output_path}', 
-        '--benchmark_out_format=json', 
-        '--benchmark_report_aggregates_only=false'
-    ]
-
-    return subprocess.call(cmd, stdin=None, stdout=None, stderr=None, shell=False)
 
 def get_bin_paths(benchmark_root_dirs: list[Path]) -> list[Path]:
     binaries = []
@@ -102,7 +90,7 @@ def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) 
 
         logger.info(f'Running benchmark: {benchmark_name}')
 
-        result = run_single_benchmark(binary_path, output_path / f'{benchmark_name}.json')
+        result = framework.framework.run_single_benchmark(binary_path, output_path / f'{benchmark_name}{framework.framework.OUTPUT_SUFFIX}')
         
         if result != 0:
             logger.warning(f'{benchmark_name}: Exited with code: {result}')
@@ -112,8 +100,8 @@ def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) 
         if tag != 'recent':
             recent_path = output_path.parent / '_iter_recent'
             recent_path.mkdir(parents=True, exist_ok=True)
-            dest_path = recent_path / f'{benchmark_name}.json'
-            shutil.copy(output_path / f'{benchmark_name}.json', dest_path)
+            dest_path = recent_path / f'{benchmark_name}{framework.framework.OUTPUT_SUFFIX}'
+            shutil.copy(output_path / f'{benchmark_name}{framework.framework.OUTPUT_SUFFIX}', dest_path)
             # Updates mtime of file for freshness sorting.
             dest_path.touch()
             logger.debug(f"Copied result to recent: {dest_path}")
