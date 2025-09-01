@@ -3,6 +3,7 @@ import importlib
 from ccbenchmark.frameworks.util.parse_result import ParseResult
 from typing import cast, Protocol, Generator, Callable
 from pathlib import Path
+from io import TextIOWrapper
 
 class Framework(Protocol):
     NON_AGGREGATED_METRICS: list[str]
@@ -10,7 +11,7 @@ class Framework(Protocol):
     OUTPUT_SUFFIX: str
 
     run_single_benchmark: Callable[[Path, Path], int]
-    parse: Callable[[dict], Generator[ParseResult, None, None]]
+    parse: Callable[[TextIOWrapper, Path], Generator[ParseResult, None, None]]
 
 framework: Framework = None
 
