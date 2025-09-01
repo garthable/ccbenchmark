@@ -12,6 +12,7 @@ logger = logging.getLogger()
 
 from ccbenchmark.benchmark_data import BenchmarkData
 from ccbenchmark.gui import show_gui
+from ccbenchmark.util import strip_common_paths
 
 def get_latest_mtime_in_dir(path: Path) -> float:
     """Gets time of modification in directory"""
@@ -21,8 +22,15 @@ def get_latest_mtime_in_dir(path: Path) -> float:
 def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) -> None:
     """Compares benchmark results, launches gui"""
 
+    in_iterations = set()
+    iteration_paths = []
+    for f in benchmark_output_directory.rglob('*'):
+        if f.is_file() and f.parent not in in_iterations:
+            iteration_paths.append(f.parent)
+            in_iterations.add(f.parent)
+
     iteration_paths_sorted = sorted(
-        (f for f in benchmark_output_directory.iterdir() if f.is_dir()),
+        iteration_paths,
         key=get_latest_mtime_in_dir
     )
 
@@ -46,16 +54,6 @@ def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) ->
     benchmark_data.establish_common_time_unit()
     benchmark_data.strip_common_paths()
     show_gui(benchmark_data)
-
-def init_dir(benchmark_path: Path, tag: Path) -> Path:
-    """Initializes directory, prevents errors from directory not existing"""
-    output_dir = benchmark_path / tag
-    try:
-        output_dir.mkdir(parents=True, exist_ok=True)
-    except Exception as e:
-        logger.debug(f'Failed to create directory {output_dir}: {e}')
-
-    return output_dir
 
 def run_single_benchmark(binary_path: Path, output_path: Path) -> int:
     """Runs a single benchmark binary and writes output to the given path."""
@@ -81,19 +79,17 @@ def get_bin_paths(benchmark_root_dirs: list[Path]) -> list[Path]:
 
 def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) -> None:
     """Runs all benchmarks in benchmark.txt"""
-
-    if tag != 'recent':
-        recent_dir = init_dir(output_dir, 'recent')
-    output_dir = init_dir(output_dir, Path(tag))
-
     binary_paths = get_bin_paths(benchmark_root_dirs)
+    output_paths = [output_dir / stripped_path.parent / tag 
+                    for stripped_path in strip_common_paths(binary_paths)]
 
-    for binary_path in binary_paths:
+    for binary_path, output_path in zip(binary_paths, output_paths):
         benchmark_name = binary_path.name
+        output_path.mkdir(parents=True, exist_ok=True)
 
         logger.info(f'Running benchmark: {benchmark_name}')
 
-        result = run_single_benchmark(binary_path, output_dir / f'{benchmark_name}.json')
+        result = run_single_benchmark(binary_path, output_path / f'{benchmark_name}.json')
         
         if result != 0:
             logger.warning(f'{benchmark_name}: Exited with code: {result}')
@@ -101,8 +97,10 @@ def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) 
             logger.info(f'{benchmark_name}: OK')
         
         if tag != 'recent':
-            dest_path = recent_dir / f'{benchmark_name}.json'
-            shutil.copy(output_dir / f'{benchmark_name}.json', dest_path)
+            recent_path = output_path.parent / 'recent'
+            recent_path.mkdir(parents=True, exist_ok=True)
+            dest_path = recent_path / f'{benchmark_name}.json'
+            shutil.copy(output_path / f'{benchmark_name}.json', dest_path)
             # Updates mtime of file for freshness sorting.
             dest_path.touch()
             logger.debug(f"Copied result to recent: {dest_path}")
