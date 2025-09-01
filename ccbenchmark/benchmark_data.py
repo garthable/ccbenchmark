@@ -9,6 +9,7 @@ from copy import deepcopy
 from typing import Callable, cast
 import importlib
 from ccbenchmark.parsers.util.parser_protocol import Parser
+from ccbenchmark.benchmark_settings import load_local_settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
@@ -146,7 +147,8 @@ class BenchmarkData:
         self.benchmarks: list[BenchmarkIterations] = []
         self.benchmark_name_to_index: dict[(Path, str), int] = {}
 
-        self.parser = cast(Parser, importlib.import_module('ccbenchmark.parsers.cpp.google_benchmark'))
+        framework = load_local_settings().framework
+        self.parser = cast(Parser, importlib.import_module(f'ccbenchmark.parsers.{framework}'))
 
         metric_names = self.parser.NON_AGGREGATED_METRICS + self.parser.AGGREGATED_METRICS
         self.metric_names: list[MetricName] = [MetricName(metric_name) for metric_name in metric_names]
