@@ -37,10 +37,20 @@ def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) ->
         key=get_latest_mtime_in_dir
     )
 
-    iteration_names = [path.name[len('_iter_'):] for path in iteration_paths_sorted]
-    benchmark_data = BenchmarkData(iteration_names)
+    in_iteration_names = set()
+    iteration_names_to_index: dict[str, int] = {}
+    for path in iteration_paths_sorted:
+        name = path.name[len('_iter_'):]
+        if name in in_iteration_names:
+            continue
+        in_iteration_names.add(name)
+        iteration_names_to_index[name] = len(iteration_names_to_index)
 
-    for iteration_index, iteration_path in enumerate(iteration_paths_sorted):
+    benchmark_data = BenchmarkData(list(iteration_names_to_index.keys()))
+
+    for iteration_path in iteration_paths_sorted:
+        name = iteration_path.name[len('_iter_'):]
+        iteration_index = iteration_names_to_index[name]
         assert iteration_path.is_dir(), f'{iteration_path} is not a directory.'
         for json_file_path in iteration_path.iterdir():
             assert json_file_path.suffix == '.json', f'ERROR: None Json File: {json_file_path}'
