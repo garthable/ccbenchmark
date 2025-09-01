@@ -11,15 +11,6 @@ from ccbenchmark.parsers.util.parse_result import ParseResult
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
-def get_benchmark_path(json_file: dict) -> Path:
-    try:
-        benchmark_bin_line = json_file['context']['executable']
-    except KeyError:
-        logger.warning(f"Missing '[context][executable]' in JSON file. Failed to add JSON file.")
-        return Path()
-    
-    return Path(benchmark_bin_line)
-
 def parse(json_file: dict) -> Generator[ParseResult, None, None]:
     """Adds json file to BenchmarkData"""
     try:

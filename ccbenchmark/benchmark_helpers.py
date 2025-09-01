@@ -39,7 +39,8 @@ def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) ->
                 except json.JSONDecodeError as e:
                     logger.warning(f'Invalid JSON in {json_file_path}: {e}')
                     continue
-                benchmark_data.add_json_file(iteration_index, json_loaded)
+                path = iteration_path.parent / json_file_path.name.split('.')[0]
+                benchmark_data.add_json_file(iteration_index, json_loaded, path)
     
     benchmark_data.validate()
     benchmark_data.establish_common_time_unit()
