@@ -23,18 +23,21 @@ def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) ->
     """Compares benchmark results, launches gui"""
 
     in_iterations = set()
-    iteration_paths = []
+    iteration_paths: list[Path] = []
     for f in benchmark_output_directory.rglob('*'):
-        if f.is_file() and f.parent not in in_iterations:
-            iteration_paths.append(f.parent)
-            in_iterations.add(f.parent)
+        if not (f.is_file() and f.parent is not None and f.parent not in in_iterations):
+            continue
+        if not (len(str(f.parent.name)) >= len('_iter_') and str(f.parent.name)[0:len('_iter_')] == '_iter_'):
+            continue
+        iteration_paths.append(f.parent)
+        in_iterations.add(f.parent)
 
     iteration_paths_sorted = sorted(
         iteration_paths,
         key=get_latest_mtime_in_dir
     )
 
-    iteration_names = [path.name for path in iteration_paths_sorted]
+    iteration_names = [path.name[len('_iter_'):] for path in iteration_paths_sorted]
     benchmark_data = BenchmarkData(iteration_names)
 
     for iteration_index, iteration_path in enumerate(iteration_paths_sorted):
@@ -80,7 +83,7 @@ def get_bin_paths(benchmark_root_dirs: list[Path]) -> list[Path]:
 def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) -> None:
     """Runs all benchmarks in benchmark.txt"""
     binary_paths = get_bin_paths(benchmark_root_dirs)
-    output_paths = [output_dir / stripped_path.parent / tag 
+    output_paths = [output_dir / stripped_path.parent / f'_iter_{tag}' 
                     for stripped_path in strip_common_paths(binary_paths)]
 
     for binary_path, output_path in zip(binary_paths, output_paths):
@@ -97,7 +100,7 @@ def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) 
             logger.info(f'{benchmark_name}: OK')
         
         if tag != 'recent':
-            recent_path = output_path.parent / 'recent'
+            recent_path = output_path.parent / '_iter_recent'
             recent_path.mkdir(parents=True, exist_ok=True)
             dest_path = recent_path / f'{benchmark_name}.json'
             shutil.copy(output_path / f'{benchmark_name}.json', dest_path)
