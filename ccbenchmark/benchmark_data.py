@@ -7,6 +7,7 @@ from ccbenchmark.util import strip_common_paths
 import math
 from copy import deepcopy
 from typing import Callable
+from io import TextIOWrapper
 
 import ccbenchmark.benchmark_framework as framework
 
@@ -148,17 +149,17 @@ class BenchmarkData:
         metric_names = framework.framework.NON_AGGREGATED_METRICS + framework.framework.AGGREGATED_METRICS
         self.metric_names: list[MetricName] = [MetricName(metric_name) for metric_name in metric_names]
     
-    def add_file(self, iteration_index: int, file_contents: dict, path: Path) -> None:
+    def add_file(self, iteration_index: int, file_stream: TextIOWrapper, file_path: Path, benchmark_path: Path) -> None:
         """Adds file to BenchmarkData"""
         metric_count = len(self.metric_names)
         iteration_count = len(self.iteration_names)
 
-        for parse_result in framework.framework.parse(file_contents):
-            benchmark_id = (path, parse_result.name)
+        for parse_result in framework.framework.parse(file_stream, file_path):
+            benchmark_id = (benchmark_path, parse_result.name)
             if benchmark_id not in self.benchmark_name_to_index:
                 benchmark_index = len(self.benchmarks)
                 self.benchmark_name_to_index[benchmark_id] = benchmark_index
-                benchmark = BenchmarkIterations(metric_count, iteration_count, path, False)
+                benchmark = BenchmarkIterations(metric_count, iteration_count, benchmark_path, False)
                 self.benchmarks.append(benchmark)
                 self.benchmark_names.append(parse_result.name)
             else:
@@ -167,7 +168,7 @@ class BenchmarkData:
             assert benchmark_index < len(self.benchmarks), f'Benchmark Index is out of bounds. {benchmark_index} < {len(self.benchmarks)}'
 
             iterations = self.benchmarks[benchmark_index]
-            iterations.bin_path = path
+            iterations.bin_path = benchmark_path
 
             iterations.aggregated = parse_result.aggregated
 
