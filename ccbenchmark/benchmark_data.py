@@ -6,10 +6,9 @@ from pathlib import Path
 from ccbenchmark.util import strip_common_paths
 import math
 from copy import deepcopy
-from typing import Callable, cast
-import importlib
-from ccbenchmark.parsers.util.parser_protocol import Parser
-from ccbenchmark.benchmark_settings import load_local_settings
+from typing import Callable
+
+import ccbenchmark.benchmark_framework as framework
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
@@ -137,7 +136,6 @@ class BenchmarkData:
     benchmark_names: list[str]
     iteration_names: list[str]
     benchmarks: list[BenchmarkIterations]
-    parser: Parser
     metric_names: list[MetricName]
     benchmark_name_to_index: dict[(Path, str), int]
 
@@ -147,18 +145,15 @@ class BenchmarkData:
         self.benchmarks: list[BenchmarkIterations] = []
         self.benchmark_name_to_index: dict[(Path, str), int] = {}
 
-        framework = load_local_settings().framework
-        self.parser = cast(Parser, importlib.import_module(f'ccbenchmark.parsers.{framework}'))
-
-        metric_names = self.parser.NON_AGGREGATED_METRICS + self.parser.AGGREGATED_METRICS
+        metric_names = framework.framework.NON_AGGREGATED_METRICS + framework.framework.AGGREGATED_METRICS
         self.metric_names: list[MetricName] = [MetricName(metric_name) for metric_name in metric_names]
     
-    def add_json_file(self, iteration_index: int, json_file: dict, path: Path) -> None:
-        """Adds json file to BenchmarkData"""
+    def add_file(self, iteration_index: int, file_contents: dict, path: Path) -> None:
+        """Adds file to BenchmarkData"""
         metric_count = len(self.metric_names)
         iteration_count = len(self.iteration_names)
 
-        for parse_result in self.parser.parse(json_file):
+        for parse_result in framework.framework.parse(file_contents):
             benchmark_id = (path, parse_result.name)
             if benchmark_id not in self.benchmark_name_to_index:
                 benchmark_index = len(self.benchmarks)
@@ -300,11 +295,11 @@ class BenchmarkData:
     
     @property
     def aggregated_length(self) -> int:
-        return len(self.parser.AGGREGATED_METRICS)
+        return len(framework.framework.AGGREGATED_METRICS)
 
     @property
     def non_aggregated_length(self) -> int:
-        return len(self.parser.NON_AGGREGATED_METRICS)
+        return len(framework.framework.NON_AGGREGATED_METRICS)
 
     def update(self, selected_column_indices: list[int], time_type: TimeType):
         if len(selected_column_indices) == 0:
@@ -340,8 +335,8 @@ class BenchmarkData:
         min_elements = items_per_comparison * metric_count
 
         def get_row(entry: list[BenchmarkSegment]) -> list[str]:
-            aggregated_len = len(self.parser.AGGREGATED_METRICS)
-            non_aggregated_len = len(self.parser.NON_AGGREGATED_METRICS)
+            aggregated_len = len(framework.framework.AGGREGATED_METRICS)
+            non_aggregated_len = len(framework.framework.NON_AGGREGATED_METRICS)
 
             aggregated_range = range(non_aggregated_len, non_aggregated_len + aggregated_len)
             non_aggregated_range = range(non_aggregated_len)
@@ -379,8 +374,8 @@ class BenchmarkData:
         for index in selected_column_indices:
             aggregated = aggregated or self.benchmarks[index].aggregated
 
-        non_aggregated_len = len(self.parser.NON_AGGREGATED_METRICS)
-        aggregated_len = len(self.parser.AGGREGATED_METRICS)
+        non_aggregated_len = len(framework.framework.NON_AGGREGATED_METRICS)
+        aggregated_len = len(framework.framework.AGGREGATED_METRICS)
 
         non_aggregated_range = range(non_aggregated_len)
         aggregated_range = range(non_aggregated_len, non_aggregated_len + aggregated_len)
