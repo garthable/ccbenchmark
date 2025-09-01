@@ -1,15 +1,29 @@
 from typing import Generator, Any
 from pathlib import Path
 import logging
+import subprocess
 
 from ccbenchmark.benchmark_data import BenchmarkTime, TimeUnit
-from ccbenchmark.parsers.util.default_metrics import (
+from ccbenchmark.frameworks.util.default_metrics import (
     NON_AGGREGATED_METRICS, AGGREGATED_METRICS, MetricIndices
 )
-from ccbenchmark.parsers.util.parse_result import ParseResult
+from ccbenchmark.frameworks.util.parse_result import ParseResult
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
+
+OUTPUT_SUFFIX = '.json'
+
+def run_single_benchmark(binary_path: Path, output_path: Path) -> int:
+    """Runs a single benchmark binary and writes output to the given path."""
+    cmd = [
+        binary_path, 
+        f'--benchmark_out={output_path}', 
+        '--benchmark_out_format=json', 
+        '--benchmark_report_aggregates_only=false'
+    ]
+
+    return subprocess.call(cmd, stdin=None, stdout=None, stderr=None, shell=False)
 
 def parse(json_file: dict) -> Generator[ParseResult, None, None]:
     """Adds json file to BenchmarkData"""
