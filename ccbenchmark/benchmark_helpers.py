@@ -61,16 +61,15 @@ def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) ->
     benchmark_data.strip_common_paths()
     show_gui(benchmark_data)
 
-def get_bin_paths(benchmark_root_dirs: list[Path]) -> list[Path]:
-    binaries = []
+def get_runnable_paths(benchmark_root_dirs: list[Path]) -> list[Path]:
+    runnables = []
     
     for benchmark_root_dir in benchmark_root_dirs:
         for path_str in glob(str(benchmark_root_dir)):
             path = Path(path_str)
-            is_binary = True
-            if is_binary and path.is_file():
-                binaries.append(path)
-    return binaries
+            if path.is_file():
+                runnables.append(path)
+    return runnables
 
 def remove_similiar_files(dir: Path, file_name: Path) -> None:
     for path in dir.glob(f'{str(file_name.with_suffix(''))}.*'):
@@ -80,12 +79,12 @@ def remove_similiar_files(dir: Path, file_name: Path) -> None:
 
 def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) -> None:
     """Runs all benchmarks in benchmark.txt"""
-    binary_paths = get_bin_paths(benchmark_root_dirs)
+    runnable_paths = get_runnable_paths(benchmark_root_dirs)
     output_paths = [output_dir / stripped_path.parent / f'_iter_{tag}' 
-                    for stripped_path in strip_common_paths(binary_paths)]
+                    for stripped_path in strip_common_paths(runnable_paths)]
 
-    for binary_path, output_path in zip(binary_paths, output_paths):
-        benchmark_name = binary_path.name
+    for runnable_path, output_path in zip(runnable_paths, output_paths):
+        benchmark_name = runnable_path.name
         output_path.mkdir(parents=True, exist_ok=True)
 
         logger.info(f'Running benchmark: {benchmark_name}')
@@ -93,7 +92,7 @@ def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) 
         file_name = Path(f'{benchmark_name}.{settings.local_settings.output_format}')
         output_location = output_path / file_name
 
-        result = framework.framework.run_single_benchmark(binary_path, output_location)
+        result = framework.framework.run_single_benchmark(runnable_path, output_location)
         remove_similiar_files(output_path, file_name)
         
         if result != 0:
