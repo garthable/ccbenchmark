@@ -1,0 +1,7 @@
+bin_dirs: 
+  - benchmark.py
+
+output_dir: ./benchmark_results
+
+framework: python.pyperf
+output_format: json
