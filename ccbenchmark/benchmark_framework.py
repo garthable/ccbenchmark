@@ -6,8 +6,7 @@ from pathlib import Path
 from io import TextIOWrapper
 
 class Framework(Protocol):
-    NON_AGGREGATED_METRICS: list[str]
-    AGGREGATED_METRICS: list[str]
+    METRICS: list[str]
 
     SUPPORTED_FORMATS: set[str]
 
@@ -20,11 +19,8 @@ def import_framework() -> None:
     global framework
     framework = cast(Framework, importlib.import_module(f'ccbenchmark.frameworks.{settings.local_settings.framework}'))
 
-    assert hasattr(framework, 'NON_AGGREGATED_METRICS')
-    assert isinstance(framework.NON_AGGREGATED_METRICS, list)
-
-    assert hasattr(framework, 'AGGREGATED_METRICS')
-    assert isinstance(framework.AGGREGATED_METRICS, list)
+    assert hasattr(framework, 'METRICS')
+    assert isinstance(framework.METRICS, list)
 
     assert hasattr(framework, 'SUPPORTED_FORMATS')
     assert isinstance(framework.SUPPORTED_FORMATS, set)
