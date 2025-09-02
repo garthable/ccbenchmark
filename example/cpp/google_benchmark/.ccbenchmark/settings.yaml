@@ -1,4 +1,4 @@
-bin_dirs: 
+benchmark_runnables: 
   - ./build/benchmark_0
   - ./build/benchmark_1
   - ./build/other_dir/benchmark_2

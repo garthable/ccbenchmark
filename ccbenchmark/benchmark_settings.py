@@ -6,7 +6,7 @@ _LOCAL_SETTINGS_FILE = Path('./.ccbenchmark/settings.yaml')
 
 @dataclass
 class LocalSettings:
-    bin_dirs: list[Path] = field(default_factory=lambda: [])
+    benchmark_runnables: list[Path] = field(default_factory=lambda: [])
     output_dir: Path = field(default_factory=lambda: Path())
     framework: str = field(default_factory=lambda: '')
     output_format: str = field(default_factory=lambda: '')
@@ -23,10 +23,10 @@ def load_local_settings() -> None:
     try:
         with open(_LOCAL_SETTINGS_FILE, 'r') as file:
             local_settings_yaml: dict = yaml.safe_load(file)
-            bin_dirs = [Path(bin_dir) for bin_dir in local_settings_yaml['bin_dirs']]
+            benchmark_runnables = [Path(bin_dir) for bin_dir in local_settings_yaml['benchmark_runnables']]
 
             local_settings = LocalSettings(
-                bin_dirs=bin_dirs, 
+                benchmark_runnables=benchmark_runnables, 
                 output_dir=Path(local_settings_yaml['output_dir']),
                 framework=local_settings_yaml['framework'],
                 output_format=local_settings_yaml['output_format']

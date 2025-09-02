@@ -1,4 +1,4 @@
-bin_dirs: 
+benchmark_runnables: 
   - benchmark.py
 
 output_dir: ./benchmark_results
