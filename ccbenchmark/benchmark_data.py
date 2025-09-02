@@ -25,10 +25,28 @@ class TimeType(IntEnum):
     REAL = 0
     CPU = 1
 
-@dataclass(slots=True)
+@dataclass(slots=True, init=False)
 class BenchmarkTime:
-    time_value: float | None
+    _time_value: float | None
     time_unit: TimeUnit | None
+
+    def __init__(self, time_value: float | None, time_unit: TimeUnit | None):
+        if time_value is not None and time_value <= 0.0:
+            min_float_value = math.ulp(0.0)
+            self._time_value = min_float_value
+        else:
+            self._time_value = time_value
+        self.time_unit = time_unit
+
+    @property
+    def time_value(self) -> float:
+        assert self._time_value is None or self._time_value > 0.0
+        return self._time_value
+    
+    @time_value.setter
+    def time_value(self, value: float) -> None:
+        min_float_value = math.ulp(0.0)
+        self._time_value = value if value > 0.0 else min_float_value
     
     def __str__(self) -> str:
         return f'{self.time_value:.2F} {self.time_unit}' if self.time_value is not None else 'N/A'
