@@ -222,7 +222,8 @@ class BenchmarkData:
                 if copy_time.time_value is None:
                     continue
                 max_exps.append(math.log10(copy_time.time_value))
-            assert max_exps != [], f'Max Exponents cannot be empty'
+            if max_exps == []:
+                continue
             max_exp = int(max(max_exps))
 
             if max_exp < 3:
