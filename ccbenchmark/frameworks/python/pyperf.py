@@ -27,6 +27,8 @@ def run_single_benchmark(binary_path: Path, output_path: Path) -> int:
     return subprocess.call(cmd, stdin=None, stdout=None, stderr=None, shell=False)
 
 def parse(file_stream: TextIOWrapper, file_path: Path) -> Generator[ParseResult, None, None]:
+    if file_path.suffix != '.json':
+        raise NotImplementedError(f'{file_path}')
     json_contents: dict = json.load(file_stream)
     benchmarks: list[dict] = json_contents.get('benchmarks')
     if benchmarks is None:
@@ -50,16 +52,16 @@ def parse(file_stream: TextIOWrapper, file_path: Path) -> Generator[ParseResult,
         n = len(all_values)
         median_value = sorted(all_values)[n // 2]
         median = BenchmarkTime(median_value, TimeUnit.S)
-        yield ParseResult(median, median, name, MetricIndices.Median)
+        yield ParseResult(median, BenchmarkTime(None, None), name, MetricIndices.Median.value)
         mean_value = 0.0
         for value in all_values:
             mean_value += value / n
         mean = BenchmarkTime(mean_value, TimeUnit.S)
-        yield ParseResult(mean, mean, name, MetricIndices.Mean)
+        yield ParseResult(mean, BenchmarkTime(None, None), name, MetricIndices.Mean.value)
         stddev_value = 0.0
         for value in all_values:
             stddev_value += (value - mean_value)**2
         stddev_value /= n
         stddev_value = math.sqrt(stddev_value)
         stddev = BenchmarkTime(stddev_value, TimeUnit.S)
-        yield ParseResult(stddev, stddev, name, MetricIndices.Stddev)
+        yield ParseResult(stddev, BenchmarkTime(None, None), name, MetricIndices.Stddev.value)
