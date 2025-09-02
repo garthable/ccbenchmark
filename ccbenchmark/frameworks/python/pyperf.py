@@ -10,15 +10,9 @@ import math
 import ccbenchmark.benchmark_settings as settings
 import subprocess
 
-from enum import IntEnum
+from ccbenchmark.frameworks.util.metrics import MetricIndices, METRICS
 
-NON_AGGREGATED_METRICS = []
-AGGREGATED_METRICS = ['Mean', 'Median', 'Stddev']
 SUPPORTED_FORMATS = {'json'}
-
-class MetricIndex(IntEnum):
-    Mean = 0
-
 
 def run_single_benchmark(binary_path: Path, output_path: Path) -> int:
     output_path.unlink(missing_ok=True)
@@ -56,16 +50,16 @@ def parse(file_stream: TextIOWrapper, file_path: Path) -> Generator[ParseResult,
         n = len(all_values)
         median_value = sorted(all_values)[n // 2]
         median = BenchmarkTime(median_value, TimeUnit.S)
-        yield ParseResult(median, median, name, 1, True)
+        yield ParseResult(median, median, name, MetricIndices.Median)
         mean_value = 0.0
         for value in all_values:
             mean_value += value / n
         mean = BenchmarkTime(mean_value, TimeUnit.S)
-        yield ParseResult(mean, mean, name, 0, True)
+        yield ParseResult(mean, mean, name, MetricIndices.Mean)
         stddev_value = 0.0
         for value in all_values:
             stddev_value += (value - mean_value)**2
         stddev_value /= n
         stddev_value = math.sqrt(stddev_value)
         stddev = BenchmarkTime(stddev_value, TimeUnit.S)
-        yield ParseResult(stddev, stddev, name, 2, True)
+        yield ParseResult(stddev, stddev, name, MetricIndices.Stddev)
