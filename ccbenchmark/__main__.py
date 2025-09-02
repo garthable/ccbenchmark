@@ -57,7 +57,7 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> ExitResul
     framework.import_framework()
 
     if args.action in RUN_ACTIONS:
-        run_benchmarks(settings.local_settings.bin_dirs, settings.local_settings.output_dir, args.iteration_name)
+        run_benchmarks(settings.local_settings.benchmark_runnables, settings.local_settings.output_dir, args.iteration_name)
 
     if args.action in COMPARE_ACTIONS:
         try:
