@@ -10,8 +10,8 @@ import csv
 
 from ccbenchmark.benchmark_data import BenchmarkTime, TimeUnit
 import ccbenchmark.benchmark_settings as settings
-from ccbenchmark.frameworks.util.default_metrics import (
-    NON_AGGREGATED_METRICS, AGGREGATED_METRICS, MetricIndices
+from ccbenchmark.frameworks.util.metrics import (
+    METRICS, MetricIndices
 )
 from ccbenchmark.frameworks.util.parse_result import ParseResult
 
@@ -212,19 +212,19 @@ def create_parse_result(name: str, real_time_value: float, cpu_time_value: float
     cpu_time = BenchmarkTime(cpu_time_value, time_unit)
 
     if aggregate_name is None:
-        return ParseResult(real_time, cpu_time, name, MetricIndices.Time.value, aggregated=False)
+        return ParseResult(real_time, cpu_time, name, MetricIndices.Time.value)
 
     if aggregate_name == 'mean':
-        return ParseResult(real_time, cpu_time, name, MetricIndices.Mean.value, aggregated=True)
+        return ParseResult(real_time, cpu_time, name, MetricIndices.Mean.value)
     elif aggregate_name == 'median':
-        return ParseResult(real_time, cpu_time, name, MetricIndices.Median.value, aggregated=True)
+        return ParseResult(real_time, cpu_time, name, MetricIndices.Median.value)
     elif aggregate_name == 'stddev':
-        return ParseResult(real_time, cpu_time, name, MetricIndices.Stddev.value, aggregated=True)
+        return ParseResult(real_time, cpu_time, name, MetricIndices.Stddev.value)
     elif aggregate_name == 'cv':
         real_time.time_unit = TimeUnit.PERCENTAGE
         cpu_time.time_unit = TimeUnit.PERCENTAGE
 
-        return ParseResult(real_time, cpu_time, name, MetricIndices.CV.value, aggregated=True)
+        return ParseResult(real_time, cpu_time, name, MetricIndices.CV.value)
     else:
         logger.warning(f"Unknown aggregate_name: {aggregate_name}")
         return None
