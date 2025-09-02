@@ -18,7 +18,7 @@ from ccbenchmark.frameworks.util.parse_result import ParseResult
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
-SUPPORTED_FORMATS = {'json', 'csv'}
+SUPPORTED_FORMATS = {'json', 'csv', 'console'}
 
 def run_single_benchmark(binary_path: Path, output_path: Path) -> int:
     """Runs a single benchmark binary and writes output to the given path."""
@@ -39,6 +39,9 @@ def parse(file_stream: TextIOWrapper, file_path: Path) -> Generator[ParseResult,
     elif file_path.suffix == '.csv':
         csv_reader = csv.reader(file_stream)
         for parse_result in parse_csv(csv_reader):
+            yield parse_result
+    elif file_path.suffix == '.console':
+        for parse_result in parse_console(file_stream):
             yield parse_result
     else:
         raise NotImplementedError
@@ -138,6 +141,63 @@ def parse_csv(csv_reader: Iterable[list[str]]) -> Generator[ParseResult, None, N
         if result is None:
             continue
         yield result
+
+def parse_console(console_contents: TextIOWrapper) -> Generator[ParseResult, None, None]:
+    dashed_lines = 0
+    name_to_index: dict[str, int] = {'name': 0, 'real_time': 1, 'time_unit': 2, 'cpu_time': 3}
+    for line in console_contents:
+        if dashed_lines < 2:
+            if len(line) > 0 and line[0] == '-':
+                dashed_lines += 1
+            continue
+        split_line = list(filter(None, line.split(' ')))
+        
+        def get_value(key: str) -> any:
+            try:
+                index = name_to_index[key]
+            except KeyError:
+                logger.warning(f"Missing '{key}' in CSV file. Failed to add entry.")
+                raise SkipBenchmark()
+            
+            try:
+                value = split_line[index]
+            except IndexError:
+                logger.warning(f"Index '{index}' from key '{key}' is out of bounds. Failed to add entry.")
+                raise SkipBenchmark()
+            return value
+        try:
+            raw_name: str = get_value('name')
+            real_time_value = float(get_value('real_time'))
+            cpu_time_value = float(get_value('cpu_time'))
+            time_unit: str = get_value('time_unit')
+        except SkipBenchmark:
+            continue
+
+        repeats = 1
+        for segment in raw_name.split('/'):
+            key_value_pair = segment.split(':')
+            if len(key_value_pair) <= 1:
+                continue
+            if key_value_pair[0] == 'repeats':
+                repeats = int(key_value_pair[1].split('_')[0])
+                break
+        aggregated = repeats > 1
+        
+        split_raw_name = raw_name.split('_')
+        if aggregated and split_raw_name[-1] in {'mean', 'median', 'stddev', 'cv'}:
+            aggregate_name = split_raw_name[-1]
+            name = '_'.join([segment for segment in split_raw_name[:-1]])
+        elif not aggregated:
+            aggregate_name = None
+            name = raw_name
+        else:
+            continue
+
+        result = create_parse_result(name, real_time_value, cpu_time_value, time_unit, aggregate_name)
+        if result is None:
+            continue
+        yield result
+        
 
 def create_parse_result(name: str, real_time_value: float, cpu_time_value: float, 
                         time_unit: str, aggregate_name: str | None) -> ParseResult | None:
