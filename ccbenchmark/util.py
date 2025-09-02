@@ -15,7 +15,9 @@ def strip_common_paths(paths: list[Path]) -> list[Path]:
         return []
     max_iterations = min(lengths)
 
-    for _ in range(max_iterations):
+    for i in range(max_iterations):
+        if max_iterations - i == 1:
+            return paths_copy
         common_part = None
         for path in paths_copy:
             assert(len(path.parts) != 0)
