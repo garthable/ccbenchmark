@@ -10,5 +10,3 @@ class ParseResult:
 
     name: str
     metric_index: int
-
-    aggregated: bool
