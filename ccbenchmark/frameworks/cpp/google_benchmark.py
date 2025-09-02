@@ -80,6 +80,9 @@ def parse_json(json_contents: dict) -> Generator[ParseResult, None, None]:
 
         if repetitions > 1 and run_type == 'iteration':
             continue
+        if aggregate_name is not None and aggregate_name == 'cv':
+            cpu_time_value *= 100.0
+            real_time_value *= 100.0
         result = create_parse_result(name, real_time_value, cpu_time_value, time_unit, aggregate_name)
         if result is None:
             continue
@@ -131,6 +134,9 @@ def parse_csv(csv_reader: Iterable[list[str]]) -> Generator[ParseResult, None, N
         if aggregated and split_raw_name[-1] in {'mean', 'median', 'stddev', 'cv'}:
             aggregate_name = split_raw_name[-1]
             name = '_'.join([segment for segment in split_raw_name[:-1]])
+            if aggregate_name == 'cv':
+                real_time_value *= 100.0
+                cpu_time_value *= 100.0
         elif not aggregated:
             aggregate_name = None
             name = raw_name
@@ -216,10 +222,7 @@ def create_parse_result(name: str, real_time_value: float, cpu_time_value: float
         return ParseResult(real_time, cpu_time, name, MetricIndices.Stddev.value, aggregated=True)
     elif aggregate_name == 'cv':
         real_time.time_unit = TimeUnit.PERCENTAGE
-        real_time.time_value *= 100.0
-
         cpu_time.time_unit = TimeUnit.PERCENTAGE
-        cpu_time.time_value *= 100.0
 
         return ParseResult(real_time, cpu_time, name, MetricIndices.CV.value, aggregated=True)
     else:
