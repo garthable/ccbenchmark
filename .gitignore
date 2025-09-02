@@ -1,4 +1,5 @@
-build
+*build/
+*benchmark_results/
 .vscode
 *.egg-info
 
