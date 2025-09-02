@@ -67,7 +67,7 @@ def get_bin_paths(benchmark_root_dirs: list[Path]) -> list[Path]:
     for benchmark_root_dir in benchmark_root_dirs:
         for path_str in glob(str(benchmark_root_dir)):
             path = Path(path_str)
-            is_binary = shutil.which(path) is not None
+            is_binary = True
             if is_binary and path.is_file():
                 binaries.append(path)
     return binaries
