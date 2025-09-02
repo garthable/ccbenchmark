@@ -110,10 +110,9 @@ class BenchmarkSegment:
 class BenchmarkIterations:
     times: list[list[BenchmarkSegment]]
     bin_path: Path | None
-    aggregated: Path | None
     recent_index: int | None
 
-    def __init__(self, metric_count: int, iteration_count: int, bin_path: Path | None, aggregated: bool):
+    def __init__(self, metric_count: int, iteration_count: int, bin_path: Path | None):
         self.times: list[list[BenchmarkSegment]] = [
             [BenchmarkSegment(
                 BenchmarkTime(None, None), [], 
@@ -123,7 +122,6 @@ class BenchmarkIterations:
             for _ in range(iteration_count)
         ]
         self.bin_path: Path | None = bin_path
-        self.aggregated: bool = aggregated
         self.recent_index = None
 
     @property
@@ -164,7 +162,7 @@ class BenchmarkData:
         self.benchmarks: list[BenchmarkIterations] = []
         self.benchmark_name_to_index: dict[(Path, str), int] = {}
 
-        metric_names = framework.framework.NON_AGGREGATED_METRICS + framework.framework.AGGREGATED_METRICS
+        metric_names = framework.framework.METRICS
         self.metric_names: list[MetricName] = [MetricName(metric_name) for metric_name in metric_names]
     
     def add_file(self, iteration_index: int, file_stream: TextIOWrapper, file_path: Path, benchmark_path: Path) -> None:
@@ -177,7 +175,7 @@ class BenchmarkData:
             if benchmark_id not in self.benchmark_name_to_index:
                 benchmark_index = len(self.benchmarks)
                 self.benchmark_name_to_index[benchmark_id] = benchmark_index
-                benchmark = BenchmarkIterations(metric_count, iteration_count, benchmark_path, False)
+                benchmark = BenchmarkIterations(metric_count, iteration_count, benchmark_path)
                 self.benchmarks.append(benchmark)
                 self.benchmark_names.append(parse_result.name)
             else:
@@ -187,8 +185,6 @@ class BenchmarkData:
 
             iterations = self.benchmarks[benchmark_index]
             iterations.bin_path = benchmark_path
-
-            iterations.aggregated = parse_result.aggregated
 
             assert iteration_index < iterations.iteration_count, f'Iteration Index is out of bounds. {iteration_index} < {iterations.iteration_count}'
             assert parse_result.metric_index < iterations.metric_count, f'Metric Index is out of bounds. {parse_result.metric_index} < {iterations.metric_count}'
@@ -312,14 +308,6 @@ class BenchmarkData:
         for i, _ in enumerate(self.benchmarks):
             self.benchmarks[i].bin_path = paths[i]
     
-    @property
-    def aggregated_length(self) -> int:
-        return len(framework.framework.AGGREGATED_METRICS)
-
-    @property
-    def non_aggregated_length(self) -> int:
-        return len(framework.framework.NON_AGGREGATED_METRICS)
-
     def update(self, selected_column_indices: list[int], time_type: TimeType):
         if len(selected_column_indices) == 0:
             return
@@ -335,32 +323,19 @@ class BenchmarkData:
         self.compare_recent_iterations(compute_delta_percentage, selected_column_indices, time_type)
 
     def column_to_str_matrix(self, selected_column_indices: list[int], time_type: TimeType) -> list[list[str]]:
-        aggregated = False
-        for index in selected_column_indices:
-            aggregated = aggregated or self.benchmarks[index].aggregated
-
         matrix: list[list[str]] = []
         if len(selected_column_indices) == 0:
             return []
         main_index = selected_column_indices[0]
         main_benchmark = self.benchmarks[main_index]
 
-        if aggregated:
-            metric_count = len(self.metric_names[self.non_aggregated_length:])
-        else:
-            metric_count = len(self.metric_names[:self.non_aggregated_length])
+        metric_count = len(self.metric_names)
 
         items_per_comparison = max(len(name.name_comparisons) + 1 for name in self.metric_names)
         min_elements = items_per_comparison * metric_count
 
         def get_row(entry: list[BenchmarkSegment]) -> list[str]:
-            aggregated_len = len(framework.framework.AGGREGATED_METRICS)
-            non_aggregated_len = len(framework.framework.NON_AGGREGATED_METRICS)
-
-            aggregated_range = range(non_aggregated_len, non_aggregated_len + aggregated_len)
-            non_aggregated_range = range(non_aggregated_len)
-
-            segment_indicies = non_aggregated_range if not aggregated else aggregated_range
+            segment_indicies = range(len(self.metric_names))
             row = [val for i in segment_indicies for val in entry[i].segment_str(time_type, items_per_comparison)]
             row += ['N/A' for _ in range(max(0, min_elements - len(row)))]
             assert len(row) == min_elements, f'Mismatch in elements! len({row}) != {min_elements}'
@@ -388,19 +363,9 @@ class BenchmarkData:
     def get_columns(self, selected_column_indices: list[int]) -> list[str]:
         if len(selected_column_indices) == 0:
             return []
-        
-        aggregated = False
-        for index in selected_column_indices:
-            aggregated = aggregated or self.benchmarks[index].aggregated
-
-        non_aggregated_len = len(framework.framework.NON_AGGREGATED_METRICS)
-        aggregated_len = len(framework.framework.AGGREGATED_METRICS)
-
-        non_aggregated_range = range(non_aggregated_len)
-        aggregated_range = range(non_aggregated_len, non_aggregated_len + aggregated_len)
 
         columns = []
-        for i in aggregated_range if aggregated else non_aggregated_range:
+        for i, _ in enumerate(self.metric_names):
             columns += [self.metric_names[i].name] + self.metric_names[i].name_comparisons
 
         return columns
