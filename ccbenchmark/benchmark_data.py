@@ -109,10 +109,10 @@ class BenchmarkSegment:
 @dataclass(init=False, slots=True)
 class BenchmarkIterations:
     times: list[list[BenchmarkSegment]]
-    bin_path: Path | None
+    runnable_path: Path | None
     recent_index: int | None
 
-    def __init__(self, metric_count: int, iteration_count: int, bin_path: Path | None):
+    def __init__(self, metric_count: int, iteration_count: int, runnable_path: Path | None):
         self.times: list[list[BenchmarkSegment]] = [
             [BenchmarkSegment(
                 BenchmarkTime(None, None), [], 
@@ -121,7 +121,7 @@ class BenchmarkIterations:
             )] 
             for _ in range(iteration_count)
         ]
-        self.bin_path: Path | None = bin_path
+        self.runnable_path: Path | None = runnable_path
         self.recent_index = None
 
     @property
@@ -131,7 +131,7 @@ class BenchmarkIterations:
                 if not all(entry.cpu_time.time_value is None and entry.real_time.time_value is None for entry in row):
                     self.recent_index = i
                     break
-            assert self.recent_index is not None, f'Cannot find valid recent index for {self.bin_path}'
+            assert self.recent_index is not None, f'Cannot find valid recent index for {self.runnable_path}'
 
         return self.times[self.recent_index]
     
@@ -184,7 +184,7 @@ class BenchmarkData:
             assert benchmark_index < len(self.benchmarks), f'Benchmark Index is out of bounds. {benchmark_index} < {len(self.benchmarks)}'
 
             iterations = self.benchmarks[benchmark_index]
-            iterations.bin_path = benchmark_path
+            iterations.runnable_path = benchmark_path
 
             assert iteration_index < iterations.iteration_count, f'Iteration Index is out of bounds. {iteration_index} < {iterations.iteration_count}'
             assert parse_result.metric_index < iterations.metric_count, f'Metric Index is out of bounds. {parse_result.metric_index} < {iterations.metric_count}'
@@ -196,7 +196,7 @@ class BenchmarkData:
     def validate(self) -> None:
         assert len(self.benchmarks) == len(self.benchmark_names), f'len({self.benchmarks} != len({self.benchmark_names}))'
         for benchmark, name in zip(self.benchmarks, self.benchmark_names):
-            assert benchmark.bin_path is not None
+            assert benchmark.runnable_path is not None
             assert \
                 not all(entry.cpu_time.time_value is None and entry.real_time.time_value is None for row in benchmark.times for entry in row),\
                 f'{name} is empty!'
@@ -303,10 +303,10 @@ class BenchmarkData:
                     benchmark[i].real_time_comparisons.append(comparison_time)
 
     def strip_common_paths(self) -> None:
-        paths = [benchmark.bin_path for benchmark in self.benchmarks]
+        paths = [benchmark.runnable_path for benchmark in self.benchmarks]
         paths = strip_common_paths(paths)
         for i, _ in enumerate(self.benchmarks):
-            self.benchmarks[i].bin_path = paths[i]
+            self.benchmarks[i].runnable_path = paths[i]
     
     def update(self, selected_column_indices: list[int], time_type: TimeType):
         if len(selected_column_indices) == 0:
@@ -381,8 +381,8 @@ class BenchmarkData:
         data_dict = {}
         for i, (benchmark, benchmark_name) in enumerate(zip(self.benchmarks, self.benchmark_names)):
             current_dict = data_dict
-            assert benchmark.bin_path is not None
-            for part in benchmark.bin_path.parts:
+            assert benchmark.runnable_path is not None
+            for part in benchmark.runnable_path.parts:
                 next_dict: dict | None = current_dict.get(part)
                 if next_dict is None:
                     current_dict[part] = {}
