@@ -84,7 +84,7 @@ def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) 
                     for stripped_path in strip_common_paths(runnable_paths)]
 
     for runnable_path, output_path in zip(runnable_paths, output_paths):
-        benchmark_name = runnable_path.name
+        benchmark_name = runnable_path.with_suffix('').name
         output_path.mkdir(parents=True, exist_ok=True)
 
         logger.info(f'Running benchmark: {benchmark_name}')
