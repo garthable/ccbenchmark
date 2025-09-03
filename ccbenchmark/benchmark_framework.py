@@ -1,4 +1,3 @@
-import ccbenchmark.benchmark_settings as settings
 import importlib
 from ccbenchmark.frameworks.util.parse_result import ParseResult
 from typing import cast, Protocol, Generator, Callable
@@ -13,11 +12,8 @@ class Framework(Protocol):
     run_single_benchmark: Callable[[Path, Path], int]
     parse: Callable[[TextIOWrapper, Path], Generator[ParseResult, None, None]]
 
-framework: Framework = None
-
-def import_framework() -> None:
-    global framework
-    framework = cast(Framework, importlib.import_module(f'ccbenchmark.frameworks.{settings.local_settings.framework}'))
+def import_framework(framework_name: str, output_format: str) -> Framework:
+    framework = cast(Framework, importlib.import_module(f'ccbenchmark.frameworks.{framework_name}'))
 
     assert hasattr(framework, 'METRICS')
     assert isinstance(framework.METRICS, list)
@@ -25,10 +21,12 @@ def import_framework() -> None:
     assert hasattr(framework, 'SUPPORTED_FORMATS')
     assert isinstance(framework.SUPPORTED_FORMATS, set)
 
-    assert settings.local_settings.output_format in framework.SUPPORTED_FORMATS
+    assert output_format in framework.SUPPORTED_FORMATS
 
     assert hasattr(framework, 'run_single_benchmark')
     assert isinstance(framework.run_single_benchmark, Callable)
 
     assert hasattr(framework, 'parse')
     assert isinstance(framework.parse, Callable)
+
+    return framework
