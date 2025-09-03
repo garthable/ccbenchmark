@@ -9,7 +9,6 @@ Exit codes:
 
 import logging
 import textwrap
-import re
 from enum import IntEnum
 import sys
 import argparse
@@ -19,8 +18,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
 from ccbenchmark.benchmark_helpers import run_benchmarks, compare_benchmarks
-import ccbenchmark.benchmark_settings as settings
-import ccbenchmark.benchmark_framework as framework
+from ccbenchmark.benchmark_settings import load_local_settings
+from ccbenchmark.benchmark_framework import import_framework
 
 RUN_ACTIONS = {'run', 'r', 'run_and_compare', 'rac'}
 COMPARE_ACTIONS = {'compare', 'c', 'run_and_compare', 'rac'}
@@ -49,18 +48,18 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> ExitResul
         logger.error(f"Error: Working directory {working_dir} does not exist or is not a directory.")
         return ExitResult.INVALID_WORKDIR
     
-    settings.load_local_settings()
-    if settings.local_settings is None:
+    local_settings = load_local_settings()
+    if local_settings is None:
         logger.error(f"Error: No local settings found!")
         return ExitResult.NO_LOCAL_SETTINGS
     
-    framework.import_framework()
+    framework = import_framework(local_settings.framework, local_settings.output_format)
 
     if args.action in RUN_ACTIONS:
-        run_benchmarks(settings.local_settings.benchmark_runnables, settings.local_settings.output_dir, args.iteration_name)
+        run_benchmarks(local_settings.benchmark_runnables, local_settings.output_dir, args.iteration_name)
 
     if args.action in COMPARE_ACTIONS:
-        compare_benchmarks(settings.local_settings.output_dir)
+        compare_benchmarks(local_settings.output_dir, framework)
 
     return ExitResult.SUCCESS
 
