@@ -9,7 +9,7 @@ from copy import deepcopy
 from typing import Callable
 from io import TextIOWrapper
 
-import ccbenchmark.benchmark_framework as framework
+from ccbenchmark.benchmark_framework import Framework
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
@@ -156,21 +156,21 @@ class BenchmarkData:
     metric_names: list[MetricName]
     benchmark_name_to_index: dict[(Path, str), int]
 
-    def __init__(self, iteration_names: list[str]):
+    def __init__(self, iteration_names: list[str], framework: Framework):
         self.benchmark_names: list[str] = []
         self.iteration_names: list[str] = iteration_names
         self.benchmarks: list[BenchmarkIterations] = []
         self.benchmark_name_to_index: dict[(Path, str), int] = {}
 
-        metric_names = framework.framework.METRICS
+        metric_names = framework.METRICS
         self.metric_names: list[MetricName] = [MetricName(metric_name) for metric_name in metric_names]
     
-    def add_file(self, iteration_index: int, file_stream: TextIOWrapper, file_path: Path, benchmark_path: Path) -> None:
+    def add_file(self, iteration_index: int, file_stream: TextIOWrapper, file_path: Path, benchmark_path: Path, framework: Framework) -> None:
         """Adds file to BenchmarkData"""
         metric_count = len(self.metric_names)
         iteration_count = len(self.iteration_names)
 
-        for parse_result in framework.framework.parse(file_stream, file_path):
+        for parse_result in framework.parse(file_stream, file_path):
             benchmark_id = (benchmark_path, parse_result.name)
             if benchmark_id not in self.benchmark_name_to_index:
                 benchmark_index = len(self.benchmarks)
@@ -392,8 +392,8 @@ class BenchmarkData:
             current_dict[benchmark_name] = i
         return data_dict
     
-def load_benchmark_data(iteration_names_to_index: dict[str, int], iteration_paths: list[Path]) -> BenchmarkData:
-    benchmark_data = BenchmarkData(list(iteration_names_to_index.keys()))
+def load_benchmark_data(iteration_names_to_index: dict[str, int], iteration_paths: list[Path], framework: Framework) -> BenchmarkData:
+    benchmark_data = BenchmarkData(list(iteration_names_to_index.keys()), framework)
 
     for iteration_path in iteration_paths:
         name = iteration_path.name[len('_iter_'):]
@@ -402,7 +402,7 @@ def load_benchmark_data(iteration_names_to_index: dict[str, int], iteration_path
         for file_path in iteration_path.iterdir():
             with open(file_path, 'r', encoding='locale') as file_stream:
                 benchmark_path = iteration_path.parent / file_path.name.split('.')[0]
-                benchmark_data.add_file(iteration_index, file_stream, file_path, benchmark_path)
+                benchmark_data.add_file(iteration_index, file_stream, file_path, benchmark_path, framework)
     
     benchmark_data.validate()
     benchmark_data.establish_common_time_unit()
