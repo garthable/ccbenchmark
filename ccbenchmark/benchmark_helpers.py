@@ -10,8 +10,8 @@ logger = logging.getLogger()
 from ccbenchmark.benchmark_data import BenchmarkData, load_benchmark_data
 from ccbenchmark.gui import show_gui
 from ccbenchmark.util import strip_common_paths
-import ccbenchmark.benchmark_framework as framework
-import ccbenchmark.benchmark_settings as settings
+from ccbenchmark.benchmark_framework import Framework
+from ccbenchmark.benchmark_settings import LocalSettings
 
 def get_latest_mtime_in_dir(path: Path) -> float:
     """Gets time of modification in directory"""
@@ -45,12 +45,12 @@ def get_iteration_names_to_index(iteration_paths: list[Path]) -> dict[str, int]:
         iteration_names_to_index[name] = len(iteration_names_to_index)
     return iteration_names_to_index
 
-def compare_benchmarks(benchmark_output_directory: Path) -> None:
+def compare_benchmarks(benchmark_output_directory: Path, framework: Framework) -> None:
     """Compares benchmark results, launches gui"""
     iteration_paths = get_iteration_paths(benchmark_output_directory)
     iteration_names_to_index = get_iteration_names_to_index(iteration_paths)
 
-    benchmark_data = load_benchmark_data(iteration_names_to_index, iteration_paths)
+    benchmark_data = load_benchmark_data(iteration_names_to_index, iteration_paths, framework)
     show_gui(benchmark_data)
 
 def get_runnable_paths(benchmark_root_dirs: list[Path]) -> list[Path]:
@@ -69,7 +69,7 @@ def remove_similiar_files(dir: Path, file_name: Path) -> None:
             continue
         path.unlink(missing_ok=True)
 
-def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) -> None:
+def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str, framework: Framework, local_settings: LocalSettings) -> None:
     """Runs all benchmarks in benchmark.txt"""
     runnable_paths = get_runnable_paths(benchmark_root_dirs)
     output_paths = [output_dir / stripped_path.parent / f'_iter_{tag}' 
@@ -81,10 +81,10 @@ def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) 
 
         logger.info(f'Running benchmark: {benchmark_name}')
 
-        file_name = Path(f'{benchmark_name}.{settings.local_settings.output_format}')
+        file_name = Path(f'{benchmark_name}.{local_settings.output_format}')
         output_location = output_path / file_name
 
-        result = framework.framework.run_single_benchmark(runnable_path, output_location)
+        result = framework.run_single_benchmark(runnable_path, output_location)
         remove_similiar_files(output_path, file_name)
         
         if result != 0:
