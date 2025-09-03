@@ -391,3 +391,21 @@ class BenchmarkData:
                 current_dict = next_dict
             current_dict[benchmark_name] = i
         return data_dict
+    
+def load_benchmark_data(iteration_names_to_index: dict[str, int], iteration_paths: list[Path]) -> BenchmarkData:
+    benchmark_data = BenchmarkData(list(iteration_names_to_index.keys()))
+
+    for iteration_path in iteration_paths:
+        name = iteration_path.name[len('_iter_'):]
+        iteration_index = iteration_names_to_index[name]
+        assert iteration_path.is_dir(), f'{iteration_path} is not a directory.'
+        for file_path in iteration_path.iterdir():
+            with open(file_path, 'r', encoding='locale') as file_stream:
+                benchmark_path = iteration_path.parent / file_path.name.split('.')[0]
+                benchmark_data.add_file(iteration_index, file_stream, file_path, benchmark_path)
+    
+    benchmark_data.validate()
+    benchmark_data.establish_common_time_unit()
+    benchmark_data.strip_common_paths()
+    
+    return benchmark_data
