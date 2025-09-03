@@ -11,21 +11,13 @@ class LocalSettings:
     framework: str = field(default_factory=lambda: '')
     output_format: str = field(default_factory=lambda: '')
 
-local_settings: LocalSettings = None
-
-def save_local_settings():
-    with open(_LOCAL_SETTINGS_FILE, 'w+') as file:
-        settings_dict = local_settings.__dict__
-        yaml.safe_dump(file, settings_dict)
-
-def load_local_settings() -> None:
-    global local_settings
+def load_local_settings() -> LocalSettings | None:
     try:
         with open(_LOCAL_SETTINGS_FILE, 'r') as file:
             local_settings_yaml: dict = yaml.safe_load(file)
             benchmark_runnables = [Path(bin_dir) for bin_dir in local_settings_yaml['benchmark_runnables']]
 
-            local_settings = LocalSettings(
+            return LocalSettings(
                 benchmark_runnables=benchmark_runnables, 
                 output_dir=Path(local_settings_yaml['output_dir']),
                 framework=local_settings_yaml['framework'],
@@ -33,4 +25,4 @@ def load_local_settings() -> None:
             )
 
     except FileNotFoundError:
-        local_settings = None
+        return None
