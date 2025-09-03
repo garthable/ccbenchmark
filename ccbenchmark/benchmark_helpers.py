@@ -7,7 +7,7 @@ from glob import glob
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
-from ccbenchmark.benchmark_data import BenchmarkData
+from ccbenchmark.benchmark_data import BenchmarkData, load_benchmark_data
 from ccbenchmark.gui import show_gui
 from ccbenchmark.util import strip_common_paths
 import ccbenchmark.benchmark_framework as framework
@@ -18,12 +18,10 @@ def get_latest_mtime_in_dir(path: Path) -> float:
     mtimes = [f.stat().st_mtime for f in path.rglob('*') if f.is_file()]
     return max(mtimes, default=path.stat().st_mtime)
 
-def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) -> None:
-    """Compares benchmark results, launches gui"""
-
+def get_iteration_paths(output_directory: Path) -> list[Path]:
     in_iterations = set()
     iteration_paths: list[Path] = []
-    for f in benchmark_output_directory.rglob('*'):
+    for f in output_directory.rglob('*'):
         if not (f.is_file() and f.parent is not None and f.parent not in in_iterations):
             continue
         if not (len(str(f.parent.name)) >= len('_iter_') and str(f.parent.name)[0:len('_iter_')] == '_iter_'):
@@ -31,34 +29,28 @@ def compare_benchmarks(benchmark_output_directory: Path, pattern: re.Pattern) ->
         iteration_paths.append(f.parent)
         in_iterations.add(f.parent)
 
-    iteration_paths_sorted = sorted(
+    return sorted(
         iteration_paths,
         key=get_latest_mtime_in_dir
     )
 
+def get_iteration_names_to_index(iteration_paths: list[Path]) -> dict[str, int]:
     in_iteration_names = set()
     iteration_names_to_index: dict[str, int] = {}
-    for path in iteration_paths_sorted:
+    for path in iteration_paths:
         name = path.name[len('_iter_'):]
         if name in in_iteration_names:
             continue
         in_iteration_names.add(name)
         iteration_names_to_index[name] = len(iteration_names_to_index)
+    return iteration_names_to_index
 
-    benchmark_data = BenchmarkData(list(iteration_names_to_index.keys()))
+def compare_benchmarks(benchmark_output_directory: Path) -> None:
+    """Compares benchmark results, launches gui"""
+    iteration_paths = get_iteration_paths(benchmark_output_directory)
+    iteration_names_to_index = get_iteration_names_to_index(iteration_paths)
 
-    for iteration_path in iteration_paths_sorted:
-        name = iteration_path.name[len('_iter_'):]
-        iteration_index = iteration_names_to_index[name]
-        assert iteration_path.is_dir(), f'{iteration_path} is not a directory.'
-        for file_path in iteration_path.iterdir():
-            with open(file_path, 'r', encoding='locale') as file_stream:
-                benchmark_path = iteration_path.parent / file_path.name.split('.')[0]
-                benchmark_data.add_file(iteration_index, file_stream, file_path, benchmark_path)
-    
-    benchmark_data.validate()
-    benchmark_data.establish_common_time_unit()
-    benchmark_data.strip_common_paths()
+    benchmark_data = load_benchmark_data(iteration_names_to_index, iteration_paths)
     show_gui(benchmark_data)
 
 def get_runnable_paths(benchmark_root_dirs: list[Path]) -> list[Path]:
@@ -109,6 +101,3 @@ def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str) 
             # Updates mtime of file for freshness sorting.
             dest_path.touch()
             logger.debug(f"Copied result to recent: {dest_path}")
-
-def init_benchmarks() -> None:
-    pass
