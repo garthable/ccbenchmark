@@ -5,18 +5,13 @@ from pathlib import Path
 from io import TextIOWrapper
 
 class Framework(Protocol):
-    METRICS: list[str]
-
     SUPPORTED_FORMATS: set[str]
 
-    run_single_benchmark: Callable[[Path, Path], int]
+    run_single_benchmark: Callable[[Path, Path, str], int]
     parse: Callable[[TextIOWrapper, Path], Generator[ParseResult, None, None]]
 
 def import_framework(framework_name: str, output_format: str) -> Framework:
     framework = cast(Framework, importlib.import_module(f'ccbenchmark.frameworks.{framework_name}'))
-
-    assert hasattr(framework, 'METRICS')
-    assert isinstance(framework.METRICS, list)
 
     assert hasattr(framework, 'SUPPORTED_FORMATS')
     assert isinstance(framework.SUPPORTED_FORMATS, set)
