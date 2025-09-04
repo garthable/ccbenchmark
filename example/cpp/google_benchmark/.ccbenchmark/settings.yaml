@@ -1,9 +1,9 @@
-benchmark_runnables: 
-  - ./build/benchmark_0
-  - ./build/benchmark_1
-  - ./build/other_dir/benchmark_2
+cpp.google_benchmark:
+  benchmark_runnables: 
+    - ./build/benchmark_0
+    - ./build/benchmark_1
+    - ./build/other_dir/benchmark_2
 
-output_dir: ./benchmark_results
+  output_dir: ./benchmark_results
 
-framework: cpp.google_benchmark
-output_format: json
+  output_format: json

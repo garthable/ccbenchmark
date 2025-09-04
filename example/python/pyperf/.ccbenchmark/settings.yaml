@@ -1,7 +1,7 @@
-benchmark_runnables: 
-  - benchmark.py
+python.pyperf:
+  benchmark_runnables: 
+    - benchmark.py
 
-output_dir: ./benchmark_results
+  output_dir: ./benchmark_results
 
-framework: python.pyperf
-output_format: json
+  output_format: json
