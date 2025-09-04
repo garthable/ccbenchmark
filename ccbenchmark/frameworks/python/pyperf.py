@@ -7,14 +7,13 @@ from typing import Generator
 import json
 import math
 
-import ccbenchmark.benchmark_settings as settings
 import subprocess
 
-from ccbenchmark.frameworks.util.metrics import MetricIndices, METRICS
+from ccbenchmark.frameworks.util.metrics import MetricIndices
 
 SUPPORTED_FORMATS = {'json'}
 
-def run_single_benchmark(binary_path: Path, output_path: Path) -> int:
+def run_single_benchmark(binary_path: Path, output_path: Path, output_format: str) -> int:
     output_path.unlink(missing_ok=True)
 
     cmd = [
