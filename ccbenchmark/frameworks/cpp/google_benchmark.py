@@ -9,10 +9,7 @@ import json
 import csv
 
 from ccbenchmark.benchmark_data import BenchmarkTime, TimeUnit
-import ccbenchmark.benchmark_settings as settings
-from ccbenchmark.frameworks.util.metrics import (
-    METRICS, MetricIndices
-)
+from ccbenchmark.frameworks.util.metrics import MetricIndices
 from ccbenchmark.frameworks.util.parse_result import ParseResult
 
 logging.basicConfig(level=logging.INFO)
@@ -20,12 +17,12 @@ logger = logging.getLogger()
 
 SUPPORTED_FORMATS = {'json', 'csv', 'console'}
 
-def run_single_benchmark(binary_path: Path, output_path: Path) -> int:
+def run_single_benchmark(binary_path: Path, output_path: Path, output_format: str) -> int:
     """Runs a single benchmark binary and writes output to the given path."""
     cmd = [
         binary_path, 
         f'--benchmark_out={output_path}', 
-        f'--benchmark_out_format={settings.local_settings.output_format}', 
+        f'--benchmark_out_format={output_format}', 
         '--benchmark_report_aggregates_only=false'
     ]
 
