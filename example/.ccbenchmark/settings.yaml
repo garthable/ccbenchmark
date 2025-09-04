@@ -1,0 +1,17 @@
+cpp.google_benchmark:
+  benchmark_runnables: 
+    - ./cpp/google_benchmark/build/benchmark_0
+    - ./cpp/google_benchmark/build/benchmark_1
+    - ./cpp/google_benchmark/build/other_dir/benchmark_2
+
+  output_dir: ./cpp/google_benchmark/benchmark_results
+
+  output_format: json
+
+python.pyperf:
+  benchmark_runnables: 
+    - ./python/pyperf/benchmark.py
+
+  output_dir: ./python/pyperf/benchmark_results
+
+  output_format: json
