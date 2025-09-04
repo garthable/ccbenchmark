@@ -268,8 +268,6 @@ class BenchmarkData:
                     time_unit = time_unit or base_time.time_unit
 
                     comparison_time = compare(time, base_time, comparison_func)
-                    if comparison_time.time_value is not None and comparison_time.time_value <= 0.1:
-                        pass
                     if time_type is TimeType.CPU:
                         metric.cpu_time_comparisons.append(comparison_time)
                     else:
