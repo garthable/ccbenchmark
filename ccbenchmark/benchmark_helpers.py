@@ -1,4 +1,3 @@
-import re
 import shutil
 from pathlib import Path
 import logging
@@ -7,37 +6,38 @@ from glob import glob
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
-from ccbenchmark.benchmark_data import BenchmarkData, load_benchmark_data
+from ccbenchmark.benchmark_data import load_benchmark_data
 from ccbenchmark.gui import show_gui
 from ccbenchmark.util import strip_common_paths
 from ccbenchmark.benchmark_framework import Framework
-from ccbenchmark.benchmark_settings import LocalSettings
 
-def get_latest_mtime_in_dir(path: Path) -> float:
+def get_latest_mtime_in_dir(path_and_framework: tuple[Path, Framework]) -> float:
     """Gets time of modification in directory"""
+    path = path_and_framework[0]
     mtimes = [f.stat().st_mtime for f in path.rglob('*') if f.is_file()]
     return max(mtimes, default=path.stat().st_mtime)
 
-def get_iteration_paths(output_directory: Path) -> list[Path]:
+def get_iteration_paths(output_directories: list[Path], frameworks: list[Framework]) -> list[Path]:
     in_iterations = set()
     iteration_paths: list[Path] = []
-    for f in output_directory.rglob('*'):
-        if not (f.is_file() and f.parent is not None and f.parent not in in_iterations):
-            continue
-        if not (len(str(f.parent.name)) >= len('_iter_') and str(f.parent.name)[0:len('_iter_')] == '_iter_'):
-            continue
-        iteration_paths.append(f.parent)
-        in_iterations.add(f.parent)
+    for output_directory, framework in zip(output_directories, frameworks):
+        for f in output_directory.rglob('*'):
+            if not (f.is_file() and f.parent is not None and f.parent not in in_iterations):
+                continue
+            if not (len(str(f.parent.name)) >= len('_iter_') and str(f.parent.name)[0:len('_iter_')] == '_iter_'):
+                continue
+            iteration_paths.append((f.parent, framework))
+            in_iterations.add(f.parent)
 
     return sorted(
         iteration_paths,
         key=get_latest_mtime_in_dir
     )
 
-def get_iteration_names_to_index(iteration_paths: list[Path]) -> dict[str, int]:
+def get_iteration_names_to_index(iteration_paths: list[tuple[Path, Framework]]) -> dict[str, int]:
     in_iteration_names = set()
     iteration_names_to_index: dict[str, int] = {}
-    for path in iteration_paths:
+    for path, _ in iteration_paths:
         name = path.name[len('_iter_'):]
         if name in in_iteration_names:
             continue
@@ -45,12 +45,13 @@ def get_iteration_names_to_index(iteration_paths: list[Path]) -> dict[str, int]:
         iteration_names_to_index[name] = len(iteration_names_to_index)
     return iteration_names_to_index
 
-def compare_benchmarks(benchmark_output_directory: Path, framework: Framework) -> None:
+def compare_benchmarks(benchmark_output_directory_list: list[Path], frameworks: list[Framework]) -> None:
     """Compares benchmark results, launches gui"""
-    iteration_paths = get_iteration_paths(benchmark_output_directory)
-    iteration_names_to_index = get_iteration_names_to_index(iteration_paths)
 
-    benchmark_data = load_benchmark_data(iteration_names_to_index, iteration_paths, framework)
+    iteration_paths_and_frameworks = get_iteration_paths(benchmark_output_directory_list, frameworks)
+    iteration_names_to_index = get_iteration_names_to_index(iteration_paths_and_frameworks)
+
+    benchmark_data = load_benchmark_data(iteration_names_to_index, iteration_paths_and_frameworks)
     show_gui(benchmark_data)
 
 def get_runnable_paths(benchmark_root_dirs: list[Path]) -> list[Path]:
@@ -69,9 +70,9 @@ def remove_similiar_files(dir: Path, file_name: Path) -> None:
             continue
         path.unlink(missing_ok=True)
 
-def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str, framework: Framework, local_settings: LocalSettings) -> None:
+def run_benchmarks(runnables_list: list[Path], output_dir: Path, framework: Framework, output_format: str, tag: str) -> None:
     """Runs all benchmarks in benchmark.txt"""
-    runnable_paths = get_runnable_paths(benchmark_root_dirs)
+    runnable_paths = get_runnable_paths(runnables_list)
     output_paths = [output_dir / stripped_path.parent / f'_iter_{tag}' 
                     for stripped_path in strip_common_paths(runnable_paths)]
 
@@ -81,10 +82,10 @@ def run_benchmarks(benchmark_root_dirs: list[Path], output_dir: Path, tag: str, 
 
         logger.info(f'Running benchmark: {benchmark_name}')
 
-        file_name = Path(f'{benchmark_name}.{local_settings.output_format}')
+        file_name = Path(f'{benchmark_name}.{output_format}')
         output_location = output_path / file_name
 
-        result = framework.run_single_benchmark(runnable_path, output_location)
+        result = framework.run_single_benchmark(runnable_path, output_location, output_format)
         remove_similiar_files(output_path, file_name)
         
         if result != 0:
