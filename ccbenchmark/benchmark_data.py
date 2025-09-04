@@ -156,13 +156,13 @@ class BenchmarkData:
     metric_names: list[MetricName]
     benchmark_name_to_index: dict[(Path, str), int]
 
-    def __init__(self, iteration_names: list[str], framework: Framework):
+    def __init__(self, iteration_names: list[str]):
         self.benchmark_names: list[str] = []
         self.iteration_names: list[str] = iteration_names
         self.benchmarks: list[BenchmarkIterations] = []
         self.benchmark_name_to_index: dict[(Path, str), int] = {}
 
-        metric_names = framework.METRICS
+        metric_names = ['Time', 'μ', 'Stddev', 'Med', 'Mad', 'Min', 'Max', 'CV']
         self.metric_names: list[MetricName] = [MetricName(metric_name) for metric_name in metric_names]
     
     def add_file(self, iteration_index: int, file_stream: TextIOWrapper, file_path: Path, benchmark_path: Path, framework: Framework) -> None:
@@ -392,10 +392,10 @@ class BenchmarkData:
             current_dict[benchmark_name] = i
         return data_dict
     
-def load_benchmark_data(iteration_names_to_index: dict[str, int], iteration_paths: list[Path], framework: Framework) -> BenchmarkData:
-    benchmark_data = BenchmarkData(list(iteration_names_to_index.keys()), framework)
+def load_benchmark_data(iteration_names_to_index: dict[str, int], iteration_paths_and_frameworks: list[tuple[Path, Framework]]) -> BenchmarkData:
+    benchmark_data = BenchmarkData(list(iteration_names_to_index.keys()))
 
-    for iteration_path in iteration_paths:
+    for iteration_path, framework in iteration_paths_and_frameworks:
         name = iteration_path.name[len('_iter_'):]
         iteration_index = iteration_names_to_index[name]
         assert iteration_path.is_dir(), f'{iteration_path} is not a directory.'
