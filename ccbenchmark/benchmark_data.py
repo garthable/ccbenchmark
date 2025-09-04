@@ -31,7 +31,7 @@ class BenchmarkTime:
     time_unit: TimeUnit | None
 
     def __init__(self, time_value: float | None, time_unit: TimeUnit | None):
-        if time_value is not None and time_value <= 0.0:
+        if time_value is not None and time_value == 0.0:
             min_float_value = math.ulp(0.0)
             self._time_value = min_float_value
         else:
@@ -40,13 +40,13 @@ class BenchmarkTime:
 
     @property
     def time_value(self) -> float:
-        assert self._time_value is None or self._time_value > 0.0
+        assert self._time_value is None or self._time_value != 0.0
         return self._time_value
     
     @time_value.setter
     def time_value(self, value: float) -> None:
         min_float_value = math.ulp(0.0)
-        self._time_value = value if value > 0.0 else min_float_value
+        self._time_value = value if value != 0.0 else min_float_value
     
     def __str__(self) -> str:
         return f'{self.time_value:.2F} {self.time_unit}' if self.time_value is not None else 'N/A'
@@ -92,11 +92,11 @@ def compute_delta_percentage(other_time: BenchmarkTime, base_time: BenchmarkTime
 
 @dataclass(slots=True)
 class BenchmarkSegment:
-    real_time: BenchmarkTime
-    real_time_comparisons: list[BenchmarkTime]
+    real_time: BenchmarkTime = field(default_factory=lambda: BenchmarkTime(None, None))
+    real_time_comparisons: list[BenchmarkTime] = field(default_factory=lambda: [])
     
-    cpu_time: BenchmarkTime
-    cpu_time_comparisons: list[BenchmarkTime]
+    cpu_time: BenchmarkTime = field(default_factory=lambda: BenchmarkTime(None, None))
+    cpu_time_comparisons: list[BenchmarkTime] = field(default_factory=lambda: [])
 
     def segment_str(self, time_type: TimeType, min_amount: int) -> list[str]:
         if time_type is TimeType.CPU:
@@ -259,16 +259,17 @@ class BenchmarkData:
         self.reset(time_type)
         time_unit: TimeUnit | None = None
         for benchmark in self.benchmarks:
-            for index, _ in enumerate(benchmark.times[1:], start=1):
-                assert index < len(benchmark.times), f'{index} < {len(benchmark.times)}'
-
-                for metric, prev_metric in zip(benchmark.times[index], benchmark.times[index - 1]):
+            prev_metrics = [BenchmarkSegment() for _ in self.metric_names]
+            for metrics in benchmark.times:
+                for metric, prev_metric in zip(metrics, prev_metrics):
                     time = metric.cpu_time if time_type is TimeType.CPU else metric.real_time
                     base_time = prev_metric.cpu_time if time_type is TimeType.CPU else prev_metric.real_time
 
                     time_unit = time_unit or base_time.time_unit
 
                     comparison_time = compare(time, base_time, comparison_func)
+                    if comparison_time.time_value is not None and comparison_time.time_value <= 0.1:
+                        pass
                     if time_type is TimeType.CPU:
                         metric.cpu_time_comparisons.append(comparison_time)
                     else:
@@ -277,6 +278,9 @@ class BenchmarkData:
                         len(metric.cpu_time_comparisons) > 0 or \
                         len(metric.real_time_comparisons) > 0, \
                         f'append did not occur! cpu: {metric.cpu_time_comparisons} real: {metric.real_time_comparisons}'
+                    if time.time_value is not None:
+                        base_time.time_value = time.time_value
+                        base_time.time_unit = time.time_unit
 
     def compare_recent_iterations(self,
             comparison_func: Callable[[BenchmarkTime, BenchmarkTime], BenchmarkTime],
