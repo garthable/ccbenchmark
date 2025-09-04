@@ -53,13 +53,23 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> ExitResul
         logger.error(f"Error: No local settings found!")
         return ExitResult.NO_LOCAL_SETTINGS
     
-    framework = import_framework(local_settings.framework, local_settings.output_format)
+    frameworks = [
+        import_framework(framework, output_format)
+        for framework, output_format in zip(local_settings.framework_name_list, local_settings.output_format_list)
+    ]
 
     if args.action in RUN_ACTIONS:
-        run_benchmarks(local_settings.benchmark_runnables, local_settings.output_dir, args.iteration_name)
+        zipped_inputs = zip(
+            local_settings.benchmark_runnables_list, 
+            local_settings.output_dir_list, 
+            frameworks, 
+            local_settings.output_format_list
+        )
+        for runnables, output_dir, framework, output_format in zipped_inputs:
+            run_benchmarks(runnables, output_dir, framework, output_format, args.iteration_name)
 
     if args.action in COMPARE_ACTIONS:
-        compare_benchmarks(local_settings.output_dir, framework)
+        compare_benchmarks(local_settings.output_dir_list, frameworks)
 
     return ExitResult.SUCCESS
 
