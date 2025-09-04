@@ -98,11 +98,12 @@ class BenchmarkSegment:
     cpu_time: BenchmarkTime = field(default_factory=lambda: BenchmarkTime(None, None))
     cpu_time_comparisons: list[BenchmarkTime] = field(default_factory=lambda: [])
 
-    def segment_str(self, time_type: TimeType, min_amount: int) -> list[str]:
+    def segment_str(self, time_type: TimeType, min_amount: int, time_units: list[TimeUnit]) -> list[str]:
         if time_type is TimeType.CPU:
-            segment_str = [str(self.cpu_time)] + [str(cpu_time) for cpu_time in self.cpu_time_comparisons]
+            seg_array = [self.cpu_time] + [cpu_time for cpu_time in self.cpu_time_comparisons]
         else:
-            segment_str = [str(self.real_time)] + [str(real_time) for real_time in self.real_time_comparisons]
+            seg_array = [self.real_time] + [real_time for real_time in self.real_time_comparisons]
+        segment_str = [str(convert_time(time, time_unit)) for time, time_unit in zip(seg_array, time_units)]
         extra_elements = max(0, min_amount - len(segment_str))
         return segment_str + [str(BenchmarkTime(None, None)) for _ in range(extra_elements)]
 
@@ -142,6 +143,17 @@ class BenchmarkIterations:
     @property
     def iteration_count(self) -> int:
         return len(self.times)
+    
+    def time_units(self, time_type: TimeType) -> list[TimeUnit]:
+        time_unit_list: list[TimeUnit] = []
+        for metric in self.recent:
+            if time_type is TimeType.CPU:
+                times = [metric.cpu_time] + metric.cpu_time_comparisons
+            else: 
+                times = [metric.real_time] + metric.real_time_comparisons
+            for time in times:
+                time_unit_list.append(time.time_unit)
+        return time_unit_list
 
 @dataclass(slots=True)
 class MetricName:
@@ -243,6 +255,8 @@ class BenchmarkData:
                         iteration[metric_index].real_time = convert_time(metric.real_time, time_unit)
 
     def reset(self, time_type: TimeType):
+        for metric_name in self.metric_names:
+            metric_name.name_comparisons = []
         for benchmark in self.benchmarks:
             for metrics in benchmark.times:
                 for metric in metrics:
@@ -256,16 +270,12 @@ class BenchmarkData:
             time_type: TimeType
         ) -> None:
         """Computes percentage change between iterations."""
-        self.reset(time_type)
-        time_unit: TimeUnit | None = None
         for benchmark in self.benchmarks:
             prev_metrics = [BenchmarkSegment() for _ in self.metric_names]
             for metrics in benchmark.times:
                 for metric, prev_metric in zip(metrics, prev_metrics):
                     time = metric.cpu_time if time_type is TimeType.CPU else metric.real_time
                     base_time = prev_metric.cpu_time if time_type is TimeType.CPU else prev_metric.real_time
-
-                    time_unit = time_unit or base_time.time_unit
 
                     comparison_time = compare(time, base_time, comparison_func)
                     if time_type is TimeType.CPU:
@@ -286,24 +296,24 @@ class BenchmarkData:
             time_type: TimeType
         ) -> None:
         assert len(selected_benchmark_indicies) != 0
-        self.reset(time_type)
-        time_unit: TimeUnit | None = None
-        
+
         base_index = selected_benchmark_indicies[0]
         base_benchmark = self.benchmarks[base_index].recent
-        for benchmark_index in selected_benchmark_indicies[1:]:
+        for benchmark_index in selected_benchmark_indicies:
             benchmark = self.benchmarks[benchmark_index].recent
             for i, (metric, base_metric) in enumerate(zip(benchmark, base_benchmark)):
                 time = metric.cpu_time if time_type is TimeType.CPU else metric.real_time
                 base_time = base_metric.cpu_time if time_type is TimeType.CPU else base_metric.real_time
-
-                time_unit = time_unit or base_time.time_unit
 
                 comparison_time = compare(time, base_time, comparison_func)
                 if time_type is TimeType.CPU:
                     benchmark[i].cpu_time_comparisons.append(comparison_time)
                 else:
                     benchmark[i].real_time_comparisons.append(comparison_time)
+                assert \
+                    len(metric.cpu_time_comparisons) > 0 or \
+                    len(metric.real_time_comparisons) > 0, \
+                    f'append did not occur! cpu: {metric.cpu_time_comparisons} real: {metric.real_time_comparisons}'
 
     def strip_common_paths(self) -> None:
         paths = [benchmark.runnable_path for benchmark in self.benchmarks]
@@ -311,19 +321,36 @@ class BenchmarkData:
         for i, _ in enumerate(self.benchmarks):
             self.benchmarks[i].runnable_path = paths[i]
     
+    def update_metric_names(self, time_units: list[TimeUnit]) -> None:
+        prefixes = ['', 'Δ']
+        i = 0
+        assert len(self.metric_names)*len(prefixes) == len(time_units),\
+            f'len(prefixes) = {len(prefixes)}\n len(self.metric_names) = {len(self.metric_names)}\n len(time_units) = {len(time_units)}'
+        for metric_name in self.metric_names:
+            for prefix in prefixes:
+                if i >= len(time_units):
+                    break
+                time_unit = time_units[i]
+                metric_name.name_comparisons.append(f'{prefix}{metric_name.name} ({time_unit if time_unit is not None else ''})')
+                i += 1
+
     def update(self, selected_column_indices: list[int], time_type: TimeType):
         if len(selected_column_indices) == 0:
             return
+        
+        self.reset(time_type)
+
         if len(selected_column_indices) == 1:
-            for metric_name in self.metric_names:
-                metric_name.name_comparisons = [f'Δ{metric_name.name} ()']
             self.compare_neighboring_iterations(compute_delta_percentage, time_type)
+            selected_index = selected_column_indices[0]
+            time_units = self.benchmarks[selected_index].time_units(time_type)
+            self.update_metric_names(time_units)
             return
         
-        base_index = selected_column_indices[0]
-        for metric_name in self.metric_names:
-            metric_name.name_comparisons = [f'Δ{metric_name.name}@{self.benchmark_names[base_index]} ()']
         self.compare_recent_iterations(compute_delta_percentage, selected_column_indices, time_type)
+        base_index = selected_column_indices[0]
+        time_units = self.benchmarks[base_index].time_units(time_type)
+        self.update_metric_names(time_units)
 
     def column_to_str_matrix(self, selected_column_indices: list[int], time_type: TimeType) -> list[list[str]]:
         matrix: list[list[str]] = []
@@ -334,12 +361,13 @@ class BenchmarkData:
 
         metric_count = len(self.metric_names)
 
-        items_per_comparison = max(len(name.name_comparisons) + 1 for name in self.metric_names)
+        items_per_comparison = 2
         min_elements = items_per_comparison * metric_count
 
         def get_row(entry: list[BenchmarkSegment]) -> list[str]:
             segment_indicies = range(len(self.metric_names))
-            row = [val for i in segment_indicies for val in entry[i].segment_str(time_type, items_per_comparison)]
+            time_units = main_benchmark.time_units(time_type)
+            row = [val for i in segment_indicies for val in entry[i].segment_str(time_type, items_per_comparison, time_units)]
             row += ['N/A' for _ in range(max(0, min_elements - len(row)))]
             assert len(row) == min_elements, f'Mismatch in elements! len({row}) != {min_elements}'
             return row
@@ -369,7 +397,7 @@ class BenchmarkData:
 
         columns = []
         for i, _ in enumerate(self.metric_names):
-            columns += [self.metric_names[i].name] + self.metric_names[i].name_comparisons
+            columns += self.metric_names[i].name_comparisons
 
         return columns
 
