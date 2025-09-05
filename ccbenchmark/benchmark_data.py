@@ -103,6 +103,7 @@ class BenchmarkSegment:
             seg_array = [self.cpu_time] + [cpu_time for cpu_time in self.cpu_time_comparisons]
         else:
             seg_array = [self.real_time] + [real_time for real_time in self.real_time_comparisons]
+        assert len(seg_array) == len(time_units)
         segment_str = [str(convert_time(time, time_unit)) for time, time_unit in zip(seg_array, time_units)]
         extra_elements = max(0, min_amount - len(segment_str))
         return segment_str + [str(BenchmarkTime(None, None)) for _ in range(extra_elements)]
@@ -364,10 +365,11 @@ class BenchmarkData:
         items_per_comparison = 2
         min_elements = items_per_comparison * metric_count
 
+        time_units = main_benchmark.time_units(time_type)
+
         def get_row(entry: list[BenchmarkSegment]) -> list[str]:
             segment_indicies = range(len(self.metric_names))
-            time_units = main_benchmark.time_units(time_type)
-            row = [val for i in segment_indicies for val in entry[i].segment_str(time_type, items_per_comparison, time_units)]
+            row = [val for i in segment_indicies for val in entry[i].segment_str(time_type, items_per_comparison, time_units[i*2:(i+1)*2])]
             row += ['N/A' for _ in range(max(0, min_elements - len(row)))]
             assert len(row) == min_elements, f'Mismatch in elements! len({row}) != {min_elements}'
             return row
