@@ -391,6 +391,15 @@ class MainWindow(QMainWindow):
             item = QTreeWidgetItem(parent)
             item.setText(0, key)
             if isinstance(value, dict):
+                text = key
+                next_value = None
+                while len(value) == 1:
+                    next_key, next_value = next(iter(value.items()))
+                    if not isinstance(next_value, dict):
+                        break
+                    value = next_value
+                    text += '/' + next_key
+                item.setText(0, text)
                 self.build_tree(item, value)
             elif isinstance(value, int):
                 item.setData(0, QtCore.Qt.UserRole, value)
