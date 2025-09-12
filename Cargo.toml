@@ -3,6 +3,10 @@ name = "ccbenchmark"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["python"]
+python = []
+
 [lib]
 name = "ccbenchmark"
 crate-type = ["cdylib"]
