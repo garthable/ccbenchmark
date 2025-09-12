@@ -3,14 +3,14 @@ pub mod grid;
 pub use grid::*;
 use pyo3::{prelude::*};
 
-#[pyclass(module = "grid_rust")]
+#[pyclass(module = "ccbenchmark")]
 pub struct Manager {
     base_value_grids: Vec<Grid>,
     output_grid: Grid,
     comparison_grid: Grid
 }
 
-#[pyclass(module = "grid_rust", get_all, set_all)]
+#[pyclass(module = "ccbenchmark", get_all, set_all)]
 pub struct Profile {
     pub selected_indicies: Vec<usize>,
     pub unit: String
