@@ -24,6 +24,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
 class TimeUnit(StrEnum):
+    """Time Untis used by ccbenchmark"""
     NS = 'ns'
     US = 'us'
     MS = 'ms'
@@ -31,11 +32,13 @@ class TimeUnit(StrEnum):
     PERCENTAGE = '%'
 
 class TimeType(IntEnum):
+    """Time Types used by ccbenchmark"""
     REAL = 0
     CPU = 1
 
 @dataclass(slots=True, init=False)
 class BenchmarkTime:
+    """Stores time and time unit."""
     _time_value: float | None
     time_unit: TimeUnit | None
 
