@@ -1,0 +1,22 @@
+[package]
+name = "ccbenchmark"
+version = "0.1.0"
+edition = "2024"
+
+include = [
+    "pyproject.toml",
+    "Cargo.toml",
+    "src/**",
+    "ccbenchmark/**"
+]
+
+[features]
+default = ["python"]
+python = []
+
+[lib]
+name = "_ccbenchmark"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.26.0", features = ["extension-module"] }
