@@ -85,6 +85,7 @@ class BenchmarkTime:
 
 @dataclass(slots=True)
 class MetricName:
+    """Contains base name and array of names generated from base name."""
     name: str
     name_comparisons: list[str] = field(default_factory=lambda: [])
 
