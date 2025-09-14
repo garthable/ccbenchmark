@@ -43,6 +43,13 @@ class BenchmarkTime:
     time_unit: TimeUnit | None
 
     def __init__(self, time_value: float | None, time_unit: TimeUnit | None):
+        """Initializes BenchmarkTime, replaces 0.0 value with closest value to 0.0.
+        Args:
+            time_value:
+                Value of time.
+            time_unit:
+                Unit of time.
+        """
         if time_value is not None and time_value == 0.0:
             min_float_value = math.ulp(0.0)
             self._time_value = min_float_value
@@ -52,15 +59,28 @@ class BenchmarkTime:
 
     @property
     def time_value(self) -> float:
+        """Gets time_value.
+        Returns:
+            time_value
+        """
         assert self._time_value is None or self._time_value != 0.0
         return self._time_value
     
     @time_value.setter
     def time_value(self, value: float) -> None:
+        """Sets time_value, replaces 0.0 value with closest value to 0.0
+        Args:
+            value:
+                value time_value is set to. If value is 0.0 it is replaced with closest value to 0.0.
+        """
         min_float_value = math.ulp(0.0)
         self._time_value = value if value != 0.0 else min_float_value
     
     def __str__(self) -> str:
+        """Generates string of BenchmarkTime.
+        Returns:
+            string in format of '<time_value> <time_unit>'
+        """
         return f'{self.time_value:.2F} {self.time_unit}' if self.time_value is not None else 'N/A'
 
 @dataclass(slots=True)
