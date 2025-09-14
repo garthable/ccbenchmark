@@ -3,17 +3,25 @@ pub mod grid;
 pub use grid::*;
 use pyo3::{prelude::*};
 
-#[pyclass(module = "ccbenchmark")]
+#[pyclass(module = "rust_ccbenchmark")]
 pub struct Manager {
     base_value_grids: Vec<Grid>,
     output_grid: Grid,
     comparison_grid: Grid
 }
 
-#[pyclass(module = "ccbenchmark", get_all, set_all)]
+#[pyclass(module = "rust_ccbenchmark", get_all, set_all)]
 pub struct Profile {
     pub selected_indicies: Vec<usize>,
     pub unit: String
+}
+
+#[pymethods]
+impl Profile {
+    #[new]
+    pub fn new() -> Self {
+        Self {selected_indicies: Vec::new(), unit: "".to_string()}
+    }
 }
 
 #[pymethods]
@@ -37,7 +45,7 @@ impl Manager {
             (div - 1.0) * 100.0
         };
         if profile.selected_indicies.len() == 1 {
-            let index = profile.selected_indicies[0];
+            let index: usize = profile.selected_indicies[0];
             debug_assert!(index < self.base_value_grids.len());
             let base_grid = &self.base_value_grids[index];
             let unit = Unit::from_str(&profile.unit);
@@ -45,6 +53,7 @@ impl Manager {
             self.comparison_grid = base_grid.clone_compare_neighbors(compare_func, Unit::PureUnit(PureUnit::Percentage));
         }
         else if profile.selected_indicies.len() > 1 {
+            debug_assert!(0 < self.base_value_grids.len());
             let col_count = self.base_value_grids[0].column_count();
             let unit = Unit::from_str(&profile.unit);
             self.output_grid = Grid::new(unit, profile.selected_indicies.len(), col_count);
@@ -77,15 +86,24 @@ impl Manager {
             let out_column = self.output_grid.column(i);
             let mut to_index = i*2;
             for (j, out_value) in out_column.iter().enumerate() {
-                matrix_str[to_index][j] = format!("{:.2} {}", *out_value, out_unit);
+                if out_value.is_nan() {
+                    matrix_str[to_index][j] = "N/A".to_string();
+                }
+                else {
+                    matrix_str[to_index][j] = format!("{:.2} {}", *out_value, out_unit);
+                }
             }
             to_index += 1;
             let comp_column = self.comparison_grid.column(i);
             for (j, comp_value) in comp_column.iter().enumerate() {
-                matrix_str[to_index][j] = format!("{:.2} {}", *comp_value, comp_unit);
+                if comp_value.is_nan() {
+                    matrix_str[to_index][j] = "N/A".to_string();
+                }
+                else {
+                    matrix_str[to_index][j] = format!("{:.2} {}", *comp_value, comp_unit);
+                }
             }
         }
-        print!("Str, Col Count: {}, Col Len: {}", matrix_str.len(), matrix_str[0].len());
         matrix_str
     }
     pub fn run_profile(&mut self, profile: &Profile) -> Vec<Vec<String>> {
