@@ -33,6 +33,7 @@ COMPARE_ACTIONS = {'compare', 'c', 'run_and_compare', 'rac'}
 BENCHMARK_FILE = 'benchmarks.txt'
 
 class ExitResult(IntEnum):
+    """Exit codes from main"""
     SUCCESS = 0
     NO_ACTION = 1
     INVALID_WORKDIR = 2
