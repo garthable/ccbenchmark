@@ -1,12 +1,20 @@
+"""Stores data from benchmarks.
+
+Defines:
+    - TimeUnit: Time units used by program.
+    - TimeType: Real or CPU time.
+    - BenchmarkTime: Contains float and time unit.
+    - MetricName: Contains metric base name and its comparisons.
+    - BenchmarkData: Contains data, row names, and column names.
+    - load_benchmark_data(): Loads benchmark from files.
+"""
+
 from enum import IntEnum, StrEnum
 from dataclasses import dataclass, field
-from typing import Optional
 import logging
 from pathlib import Path
 from ccbenchmark.util import strip_common_paths
 import math
-from copy import deepcopy
-from typing import Callable
 from io import TextIOWrapper
 
 from ccbenchmark.benchmark_framework import Framework
