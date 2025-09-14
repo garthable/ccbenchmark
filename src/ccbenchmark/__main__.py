@@ -84,7 +84,8 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> ExitResul
 
     return ExitResult.SUCCESS
 
-def entrypoint():
+def entrypoint() -> None:
+    """Entrypoint for ccbenchmark. Creates parser to take in CLI args."""
     epilog = textwrap.dedent("""\
     Examples:
        benchmark run
