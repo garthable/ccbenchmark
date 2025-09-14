@@ -5,7 +5,11 @@ build-backend = "maturin"
 [project]
 name = "ccbenchmark"
 version = "0.0.1"
-dependencies = []
+dependencies = ["PyQt5", "PyYAML"]
+
+[tool.maturin]
+python-source = "src"
+module-name = "ccbenchmark._ccbenchmark"
 
 [project.scripts]
 ccbenchmark = "ccbenchmark.__main__:entrypoint"
