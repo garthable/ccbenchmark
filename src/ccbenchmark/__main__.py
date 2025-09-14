@@ -1,10 +1,17 @@
-"""
+"""Main file for ccbenchmark.
+
+Contains ExitResult, entrypoint function, and main function.
+ExitResult contains values returned on failure.
 Exit codes:
     0: SUCCESS
     1: NO_ACTION
     2: INVALID_WORKDIR
     3: NO_BENCHMARKS_FOUND
     4: INVALID_REGEX
+    5: NO_LOCAL_SETTINGS
+
+Entrypoint function handles parsing arguments and runs main.
+Main function acts on the result of the parser and runs the program.
 """
 
 import logging
