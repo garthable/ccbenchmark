@@ -70,7 +70,7 @@ source py_venv/bin/activate
 ```bash
 maturin develop
 ```
-# Installation for Use 
+### Installation for Use 
 1. Clone the repository:
 ```bash
 git clone https://github.com/garthable/ccbenchmark.git
