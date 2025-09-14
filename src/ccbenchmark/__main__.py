@@ -45,7 +45,15 @@ class ExitResult(IntEnum):
         return self.name
 
 def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> ExitResult:
-    """Entry point for the benchmark CLI. Handles argument parsing and action dispatch."""
+    """Entry point for the benchmark CLI. Handles argument parsing and action dispatch.
+    Args:
+        args:
+            CLI args.
+        parser:
+            Parser from entrypoint.
+    Returns:
+        ExitResult
+    """
     if args.action is None:
         logger.error("Error: No action specified.\n")
         parser.print_help()
