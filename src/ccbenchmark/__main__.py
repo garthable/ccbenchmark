@@ -48,7 +48,7 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> ExitResul
     """Entry point for the benchmark CLI. Handles argument parsing and action dispatch.
     Args:
         args:
-            CLI args.
+            CLI args, contains: action, and iteration_name.
         parser:
             Parser from entrypoint.
     Returns:
@@ -58,11 +58,6 @@ def main(args: argparse.Namespace, parser: argparse.ArgumentParser) -> ExitResul
         logger.error("Error: No action specified.\n")
         parser.print_help()
         return ExitResult.NO_ACTION
-
-    working_dir = Path(args.working_directory)
-    if not working_dir.exists() or not working_dir.is_dir():
-        logger.error(f"Error: Working directory {working_dir} does not exist or is not a directory.")
-        return ExitResult.INVALID_WORKDIR
     
     local_settings = load_local_settings()
     if local_settings is None:
@@ -95,8 +90,7 @@ def entrypoint():
        benchmark run
        benchmark run switched_to_array
        benchmark compare
-       benchmark compare ".*cache"
-       benchmark run_and_compare switched_to_array ".*cache"
+       benchmark run_and_compare switched_to_array
     """)
     
     parser = argparse.ArgumentParser(
@@ -106,8 +100,8 @@ def entrypoint():
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    parser.add_argument('--version', action='version', version='benchmark 1.0')
-    parser.add_argument('-w', '--working_directory', nargs='?', default='.', help='Directory where benchmark data is located')
+    parser.add_argument('--version', action='version', version='benchmark 0.0.1')
+    # parser.add_argument('-w', '--working_directory', nargs='?', default='.', help='Directory where benchmark data is located')
 
     subparsers = parser.add_subparsers(dest='action', help='Action to perform')
 
@@ -115,11 +109,11 @@ def entrypoint():
     run_parser.add_argument('iteration_name', nargs='?', default='recent', help='Name of iteration')
 
     compare_parser = subparsers.add_parser('compare', aliases=['c'], help='Compare iterations of benchmarks')
-    compare_parser.add_argument('compare_name', nargs='?', default='.*', help='Regex pattern for benchmark names to be compared')
+    # compare_parser.add_argument('compare_name', nargs='?', default='.*', help='Regex pattern for benchmark names to be compared')
 
     run_and_compare_parser = subparsers.add_parser('run_and_compare', aliases=['rac'], help='Run and compare benchmarks')
     run_and_compare_parser.add_argument('iteration_name', nargs='?', default='recent', help='Name of iteration')
-    run_and_compare_parser.add_argument('compare_name', nargs='?', default='.*', help='Regex pattern for benchmark names to be compared')
+    # run_and_compare_parser.add_argument('compare_name', nargs='?', default='.*', help='Regex pattern for benchmark names to be compared')
 
     parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
 
