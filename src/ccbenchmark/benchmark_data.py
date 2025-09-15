@@ -91,6 +91,7 @@ class MetricName:
 
 @dataclass(init=False, slots=True)
 class BenchmarkData:
+    """Stores names, paths, metric_names, and data."""
     benchmark_names: list[str]
     benchmark_paths: list[Path]
     iteration_names: list[str]
@@ -99,6 +100,11 @@ class BenchmarkData:
     benchmark_name_to_index: dict[(Path, str), int]
 
     def __init__(self, iteration_names: list[str]):
+        """
+        Args:
+            iteration_names:
+                List of iteration names with no repeated names. Corresponds to name inputted when running ccbenchmark.
+        """
         self.benchmark_names: list[str] = []
         self.benchmark_paths: list[Path] = []
         self.iteration_names: list[str] = iteration_names
@@ -109,7 +115,19 @@ class BenchmarkData:
         self.metric_names: list[MetricName] = [MetricName(metric_name) for metric_name in metric_names]
     
     def add_file(self, iteration_index: int, file_stream: TextIOWrapper, file_path: Path, benchmark_path: Path, framework: Framework) -> None:
-        """Adds file to BenchmarkData"""
+        """Adds file to BenchmarkData
+        Args:
+            iteration_index:
+                Index of row file corresponds to.
+            file_stream:
+                Opened file of benchmark results.
+            file_path:
+                Path to opened file.
+            benchmark_path:
+                Path to executable that created result file.
+            framework:
+                Framework being used to parse file.
+        """
         metric_count = len(self.metric_names)
         iteration_count = len(self.iteration_names)
 
@@ -136,9 +154,18 @@ class BenchmarkData:
                 parse_result.real_time.time_value or float("nan"), parse_result.real_time.time_unit or "")
 
     def strip_common_paths(self) -> None:
+        """Removes common paths.
+        Example:
+            stip_common_paths(['a/b/c', 'a/d/e']) -> ['b/c', 'd/e']
+        """
         self.benchmark_paths = strip_common_paths(self.benchmark_paths)
     
     def update_metric_names(self, time_units: list[TimeUnit]) -> None:
+        """Updates units, prefixes, and postfixes used.
+        Args:
+            time_units:
+                time unit used in each column.
+        """
         prefixes = ['', 'Δ']
         i = 0
         assert len(self.metric_names)*len(prefixes) == len(time_units),\
@@ -153,7 +180,16 @@ class BenchmarkData:
                 metric_name.name_comparisons.append(f'{prefix}{metric_name.name} ({time_unit if time_unit is not None else ''})')
                 i += 1
 
-    def column_to_str_matrix(self, selected_column_indices: list[int], time_type: TimeType) -> list[list[str]]:
+    def get_str_matrix(self, selected_column_indices: list[int], time_type: TimeType) -> list[list[str]]:
+        """Gets data as a matrix of strings.
+        Args:
+            selected_column_indices:
+                Selected benchmarks by user.
+            time_type:
+                Real or CPU time.
+        Returns:
+            Matrix of strings.
+        """
         profile = Profile()
         profile.selected_indicies = selected_column_indices
         profile.unit = "ns"
@@ -161,10 +197,18 @@ class BenchmarkData:
         return self.benchmark_types[time_type].run_profile(profile)
     
     def get_columns(self, selected_column_indices: list[int]) -> list[str]:
+        """Gets column name strings.
+        Args:
+            selected_column_indices:
+                Selected benchmarks by user.
+        Returns:
+            Column names.
+        """
         if len(selected_column_indices) == 0:
             return []
 
-        self.update_metric_names(['ns', '%', 'ns', '%', 'ns', '%', 'ns', '%', 'ns', '%', 'ns', '%', 'ns', '%', '%', '%'])
+        units = ['ns', '%', 'ns', '%', 'ns', '%', 'ns', '%', 'ns', '%', 'ns', '%', 'ns', '%', '%', '%']
+        self.update_metric_names(units)
         columns = []
         for i, _ in enumerate(self.metric_names):
             columns += self.metric_names[i].name_comparisons
@@ -172,13 +216,24 @@ class BenchmarkData:
         return columns
 
     def get_rows(self, selected_column_indices: list[int]) -> list[str]:
+        """Gets row names as strings.
+        Args:
+            selected_column_indices:
+                Selected benchmarks by user.
+        Returns:
+            Row names.
+        """
         if len(selected_column_indices) == 0:
             return []
         elif len(selected_column_indices) == 1:
             return self.iteration_names
         return [self.benchmark_names[i] for i in selected_column_indices]
     
-    def data_to_dict(self) -> dict:
+    def get_paths(self) -> dict:
+        """Gets paths as a dictionary.
+        Returns:
+            Paths as a dictionary.
+        """
         data_dict = {}
         for i, (path, benchmark_name) in enumerate(zip(self.benchmark_paths, self.benchmark_names)):
             current_dict = data_dict

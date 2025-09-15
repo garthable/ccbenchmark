@@ -154,7 +154,7 @@ class MainWindow(QMainWindow):
         self.tree = QTreeWidget()
         self.tree.model().setHeaderData(0, QtCore.Qt.Horizontal, 'Benchmarks')
         self.tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        data = self.benchmark_data.data_to_dict()
+        data = self.benchmark_data.get_paths()
         self.build_tree(self.tree, data)
         return self.tree
     
@@ -164,7 +164,7 @@ class MainWindow(QMainWindow):
     def modify_table(self):
         columns_names = self.benchmark_data.get_columns(self.selected_indicies)
         row_names = self.benchmark_data.get_rows(self.selected_indicies)
-        table_data = self.benchmark_data.column_to_str_matrix(self.selected_indicies, self.time_type)
+        table_data = self.benchmark_data.get_str_matrix(self.selected_indicies, self.time_type)
 
         min_column_count = 30
         min_row_count = 50
