@@ -248,6 +248,15 @@ class BenchmarkData:
         return data_dict
     
 def load_benchmark_data(iteration_names_to_index: dict[str, int], iteration_paths_and_frameworks: list[tuple[Path, Framework]]) -> BenchmarkData:
+    """Creates BenchmarkData from result files.
+    Args:
+        iteration_names_to_index:
+            Maps iteration names to the index of the iteration in the data matrix.
+        iteration_paths_and_frameworks:
+            Contains paths to result files and the corresponding framework used.
+    Returns:
+        BenchmarkData
+    """
     benchmark_data = BenchmarkData(list(iteration_names_to_index.keys()))
 
     for iteration_path, framework in iteration_paths_and_frameworks:
