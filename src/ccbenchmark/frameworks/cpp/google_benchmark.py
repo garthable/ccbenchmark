@@ -1,4 +1,4 @@
-from typing import Generator, Any
+from typing import Generator
 from io import TextIOWrapper
 from pathlib import Path
 from collections.abc import Iterable
