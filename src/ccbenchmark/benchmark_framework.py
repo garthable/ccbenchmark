@@ -1,3 +1,12 @@
+"""
+Utilities for importing and handling benchmark framework modules.
+
+This module defines a Protocol (`Framework`) that specifies the required 
+interface for any benchmark framework used by ccbenchmark, and provides 
+`import_framework()` to dynamically load a framework module and validate 
+that it implements the expected interface.
+"""
+
 import importlib
 from ccbenchmark.frameworks.util.parse_result import ParseResult
 from typing import cast, Protocol, Generator, Callable
