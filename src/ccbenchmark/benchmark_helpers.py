@@ -12,17 +12,39 @@ from ccbenchmark.util import strip_common_paths
 from ccbenchmark.benchmark_framework import Framework
 
 def get_latest_mtime_in_dir(path_and_framework: tuple[Path, Framework]) -> float:
-    """Gets time of modification in directory
+    """Return the latest modification time of files in a directory.
+
     Args:
-        Tuple of path, and framework used (framework is ignored).
+        path_and_framework (tuple[Path, Framework]):
+            Directory path and its associated framework. 
+            The framework value is ignored.
+
     Returns:
-        Latest time of file modified within the directory.
+        float: UNIX timestamp of the most recently modified file in the directory,
+        or the directory's own modification time if empty.
     """
     path = path_and_framework[0]
     mtimes = [f.stat().st_mtime for f in path.rglob('*') if f.is_file()]
     return max(mtimes, default=path.stat().st_mtime)
 
-def get_iteration_paths(output_directories: list[Path], frameworks: list[Framework]) -> list[Path]:
+def get_iteration_paths(output_directories: list[Path], frameworks: list[Framework]) -> list[tuple[Path, Framework]]:
+    """Return iteration output directories sorted by modification time.
+
+    Iteration directories are recognized by the "_iter_" prefix and 
+    matched with their corresponding framework.
+
+    Args:
+        output_directories (list[Path]): 
+            Output directories where benchmark results are stored. 
+            Each entry corresponds to the `output_dir` field of a framework's configuration.
+        frameworks (list[Framework]): 
+            Benchmark frameworks that produced the results. 
+            Must be the same length as `output_directories`, paired by position.
+
+    Returns:
+        list[tuple[Path, Framework]]: Tuples of (iteration directory, framework), 
+        sorted by most recent modification time.
+    """
     in_iterations = set()
     iteration_paths: list[Path] = []
     for output_directory, framework in zip(output_directories, frameworks):
