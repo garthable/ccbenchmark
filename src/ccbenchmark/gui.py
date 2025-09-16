@@ -432,6 +432,19 @@ class MainWindow(QMainWindow):
         self.splitter.setSizes([left, right])
 
 def show_gui(benchmark_data: BenchmarkData) -> int:
+    """Display the benchmark comparison GUI.
+
+    Launches a Qt application showing benchmark results in a
+    tabular/graphical interface.
+
+    Args:
+        benchmark_data (BenchmarkData): 
+            Structured benchmark results including the data matrix, 
+            row labels, and column labels.
+
+    Returns:
+        int: Exit code from ``QApplication.exec_()``.
+    """
     app = QApplication(sys.argv)
     window = MainWindow(benchmark_data)
     window.show()
