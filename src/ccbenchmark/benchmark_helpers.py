@@ -12,7 +12,12 @@ from ccbenchmark.util import strip_common_paths
 from ccbenchmark.benchmark_framework import Framework
 
 def get_latest_mtime_in_dir(path_and_framework: tuple[Path, Framework]) -> float:
-    """Gets time of modification in directory"""
+    """Gets time of modification in directory
+    Args:
+        Tuple of path, and framework used (framework is ignored).
+    Returns:
+        Latest time of file modified within the directory.
+    """
     path = path_and_framework[0]
     mtimes = [f.stat().st_mtime for f in path.rglob('*') if f.is_file()]
     return max(mtimes, default=path.stat().st_mtime)
