@@ -1,8 +1,10 @@
 from enum import IntEnum
 
+"""Base names of metrics."""
 METRICS = ['Time', 'μ', 'Stddev', 'Med', 'Mad', 'Min', 'Max', 'CV']
 
 class MetricIndices(IntEnum):
+    """Corresponds a metric type to its column indice."""
     Time   = 0
     Mean   = 1
     Stddev = 2
