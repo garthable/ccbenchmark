@@ -132,6 +132,18 @@ def get_runnable_paths(benchmark_root_dirs: list[Path]) -> list[Path]:
     return runnables
 
 def remove_similiar_files(dir: Path, file_name: Path) -> None:
+    """Remove files in the same iteration directory with the same base name.
+
+    Ensures only one file with a given base name exists by deleting files 
+    that share the name but have a different suffix.
+
+    Args:
+        dir (Path): 
+            Iteration directory to clean up.
+        file_name (Path): 
+            File being added; files with the same stem but different 
+            suffixes will be removed.
+    """
     for path in dir.glob(f'{str(file_name.with_suffix(''))}.*'):
         if path.suffix == file_name.suffix:
             continue
