@@ -168,11 +168,35 @@ def copy_result_to_recent(output_path: Path, file_name: Path) -> None:
     dest_path.touch()
     logger.debug(f"Copied result to recent: {dest_path}")
 
-def run_benchmarks(runnables_list: list[Path], output_dir: Path, framework: Framework, output_format: str, tag: str) -> None:
-    """Runs all benchmarks in benchmark.txt"""
+def run_benchmarks(
+    runnables_list: list[Path], 
+    output_dir: Path, 
+    framework: Framework, 
+    output_format: str, 
+    iteration_name: str
+) -> None:
+    """Run all benchmarks and save results.
+
+    Executes each benchmark in ``runnables_list``, stores its output in the 
+    output directory, and manages duplicate result files. If ``iteration_name`` 
+    is not "recent", results are also copied to the "recent" iteration.
+
+    Args:
+        runnables_list (list[Path]): 
+            Paths to runnable benchmark executables or scripts.
+        output_dir (Path): 
+            Root directory where benchmark results are written.
+        framework (Framework): 
+            Framework used to execute each benchmark.
+        output_format (str): 
+            Output file format (e.g., "json").
+        iteration_name (str): 
+            Name of the iteration.
+    """
     runnable_paths = get_runnable_paths(runnables_list)
-    output_paths = [output_dir / stripped_path.parent / f'_iter_{tag}' 
-                    for stripped_path in strip_common_paths(runnable_paths)]
+    stripped_paths = strip_common_paths(runnable_paths)
+    output_paths = [output_dir / stripped_path.parent / f'_iter_{iteration_name}' 
+                    for stripped_path in stripped_paths]
 
     for runnable_path, output_path in zip(runnable_paths, output_paths):
         benchmark_name = runnable_path.with_suffix('').name
@@ -191,5 +215,5 @@ def run_benchmarks(runnables_list: list[Path], output_dir: Path, framework: Fram
         else:
             logger.info(f'{benchmark_name}: OK')
         
-        if tag != 'recent':
+        if iteration_name != 'recent':
             copy_result_to_recent(output_path, file_name)
