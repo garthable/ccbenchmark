@@ -149,11 +149,20 @@ def remove_similiar_files(dir: Path, file_name: Path) -> None:
             continue
         path.unlink(missing_ok=True)
 
-def copy_result_to_recent(output_path: Path, file_name: Path, output_location: Path):
+def copy_result_to_recent(output_path: Path, file_name: Path) -> None:
+    """Copies result file to recent folder.
+
+    Initializes recent folder, and copies most recent output file to recent file.
+
+    Args:
+        output_path:
+            Path where ne
+        file_name:
+    """
     recent_path = output_path.parent / '_iter_recent'
     recent_path.mkdir(parents=True, exist_ok=True)
     dest_path = recent_path / file_name
-    shutil.copy(output_location, dest_path)
+    shutil.copy(output_path / file_name, dest_path)
     remove_similiar_files(recent_path, file_name)
     # Updates mtime of file for freshness sorting.
     dest_path.touch()
@@ -183,4 +192,4 @@ def run_benchmarks(runnables_list: list[Path], output_dir: Path, framework: Fram
             logger.info(f'{benchmark_name}: OK')
         
         if tag != 'recent':
-            copy_result_to_recent(output_path, file_name, output_location)
+            copy_result_to_recent(output_path, file_name)
