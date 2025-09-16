@@ -34,7 +34,7 @@ def strip_common_paths(paths: list[Path]) -> list[Path]:
             if common_part is None:
                 common_part = part
             elif common_part != part:
-                break
+                return paths_copy
 
         for j in range(len(paths_copy)):
             parts = paths_copy[j].parts[1:]
