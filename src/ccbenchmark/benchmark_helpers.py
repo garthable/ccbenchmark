@@ -108,6 +108,20 @@ def compare_benchmarks(output_directories: list[Path], frameworks: list[Framewor
     show_gui(benchmark_data)
 
 def get_runnable_paths(benchmark_root_dirs: list[Path]) -> list[Path]:
+    """Collect runnable benchmark file paths from root directories.
+
+    Each root directory is expanded with glob-style matching, and any 
+    files found are treated as benchmark runnables.
+
+    Args:
+        benchmark_root_dirs (list[Path]): 
+            Root directories specified in ``settings.yaml`` from which to 
+            search for runnable benchmark files.
+
+    Returns:
+        list[Path]: Paths to runnable benchmark files discovered under 
+        the given root directories.
+    """
     runnables = []
     
     for benchmark_root_dir in benchmark_root_dirs:
