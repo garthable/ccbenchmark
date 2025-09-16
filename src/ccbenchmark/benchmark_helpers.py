@@ -86,10 +86,22 @@ def get_iteration_names_to_index(iteration_paths: list[tuple[Path, Framework]]) 
         iteration_names_to_index[name] = len(iteration_names_to_index)
     return iteration_names_to_index
 
-def compare_benchmarks(benchmark_output_directory_list: list[Path], frameworks: list[Framework]) -> None:
-    """Compares benchmark results, launches gui"""
+def compare_benchmarks(output_directories: list[Path], frameworks: list[Framework]) -> None:
+    """Compare benchmark results and launch the GUI.
 
-    iteration_paths_and_frameworks = get_iteration_paths(benchmark_output_directory_list, frameworks)
+    Collects iteration paths and their name-to-index mapping, then loads
+    benchmark data and displays it in an interactive GUI.
+
+    Args:
+        output_directories (list[Path]): 
+            Output directories containing benchmark results. 
+            Each corresponds to the `output_dir` field of a framework's configuration.
+        frameworks (list[Framework]): 
+            Benchmark frameworks that produced the results. 
+            Must align 1:1 with `output_directories` by order.
+    """
+
+    iteration_paths_and_frameworks = get_iteration_paths(output_directories, frameworks)
     iteration_names_to_index = get_iteration_names_to_index(iteration_paths_and_frameworks)
 
     benchmark_data = load_benchmark_data(iteration_names_to_index, iteration_paths_and_frameworks)
