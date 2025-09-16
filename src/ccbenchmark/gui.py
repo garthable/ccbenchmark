@@ -4,7 +4,6 @@ from PyQt5 import QtCore, QtGui
 import sys
 
 from ccbenchmark.benchmark_data import BenchmarkData, TimeType
-from ccbenchmark.util import time_to_str
 
 class StickyMenu(QMenu):
     def mouseReleaseEvent(self, event):
