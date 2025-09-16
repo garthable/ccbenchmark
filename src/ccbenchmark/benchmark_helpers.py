@@ -149,6 +149,16 @@ def remove_similiar_files(dir: Path, file_name: Path) -> None:
             continue
         path.unlink(missing_ok=True)
 
+def copy_result_to_recent(output_path: Path, file_name: Path, output_location: Path):
+    recent_path = output_path.parent / '_iter_recent'
+    recent_path.mkdir(parents=True, exist_ok=True)
+    dest_path = recent_path / file_name
+    shutil.copy(output_location, dest_path)
+    remove_similiar_files(recent_path, file_name)
+    # Updates mtime of file for freshness sorting.
+    dest_path.touch()
+    logger.debug(f"Copied result to recent: {dest_path}")
+
 def run_benchmarks(runnables_list: list[Path], output_dir: Path, framework: Framework, output_format: str, tag: str) -> None:
     """Runs all benchmarks in benchmark.txt"""
     runnable_paths = get_runnable_paths(runnables_list)
@@ -173,11 +183,4 @@ def run_benchmarks(runnables_list: list[Path], output_dir: Path, framework: Fram
             logger.info(f'{benchmark_name}: OK')
         
         if tag != 'recent':
-            recent_path = output_path.parent / '_iter_recent'
-            recent_path.mkdir(parents=True, exist_ok=True)
-            dest_path = recent_path / file_name
-            shutil.copy(output_location, dest_path)
-            remove_similiar_files(recent_path, file_name)
-            # Updates mtime of file for freshness sorting.
-            dest_path.touch()
-            logger.debug(f"Copied result to recent: {dest_path}")
+            copy_result_to_recent(output_path, file_name, output_location)
