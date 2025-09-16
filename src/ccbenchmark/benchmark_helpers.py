@@ -62,6 +62,20 @@ def get_iteration_paths(output_directories: list[Path], frameworks: list[Framewo
     )
 
 def get_iteration_names_to_index(iteration_paths: list[tuple[Path, Framework]]) -> dict[str, int]:
+    """Return a mapping of iteration names to their index.
+
+    Iteration names are extracted from directories with the "_iter_" prefix
+    (e.g., "_iter_foo" → "foo"). Each unique iteration name is assigned an
+    index in the order it appears.
+
+    Args:
+        iteration_paths (list[tuple[Path, Framework]]): 
+            List of (iteration directory, framework) pairs. 
+            The framework value is ignored.
+
+    Returns:
+        dict[str, int]: Mapping from iteration name to its index.
+    """
     in_iteration_names = set()
     iteration_names_to_index: dict[str, int] = {}
     for path, _ in iteration_paths:
