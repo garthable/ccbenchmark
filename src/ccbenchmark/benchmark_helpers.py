@@ -1,3 +1,23 @@
+"""
+Benchmark action utilities.
+
+This module provides functions for running and comparing benchmarks, 
+managing iteration directories, and preparing results for GUI display. 
+It is used by `__main__.py` to implement the following actions:
+
+- run: execute benchmarks and save results (`run_benchmarks`)
+- compare: load benchmark results and launch the GUI (`compare_benchmarks`)
+
+Other utility functions included:
+
+- get_latest_mtime_in_dir(): get the most recent modification time in a directory
+- get_iteration_paths(): collect iteration directories sorted by modification time
+- get_iteration_names_to_index(): map iteration names to their index
+- get_runnable_paths(): find all benchmark executable files
+- remove_similiar_files(): clean up duplicate result files in an iteration directory
+- copy_result_to_recent(): copy iteration results to the "recent" folder
+"""
+
 import shutil
 from pathlib import Path
 import logging
