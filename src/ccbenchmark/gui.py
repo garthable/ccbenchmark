@@ -110,14 +110,64 @@ class Table(QTableWidget):
             matrix.append(row_text)
         return matrix
 
+def get_color(value: float, column_name: str, default_color: QtGui.QColor) -> QtGui.QColor:
+    red_color = QtGui.QColor(255, 85, 85)
+    green_color = QtGui.QColor(0, 255, 128)
+    if value != value:
+        return default_color
+
+    if 'Δ' in column_name:
+        t = value / 20.0
+        t = max(min(t, 1.0), -1.0)
+        if t < 0.0:
+            t = abs(t)
+            selected_color = green_color
+        else:
+            selected_color = red_color
+        return QtGui.QColor(
+            int((1.0 - t)*default_color.red() + t*selected_color.red()),
+            int((1.0 - t)*default_color.green() + t*selected_color.green()),
+            int((1.0 - t)*default_color.blue() + t*selected_color.blue())
+        )
+    elif 'CV' in column_name:
+        if value > 10.0:
+            return red_color
+
+    return default_color
+
 class MainWindow(QMainWindow):
+    """Main application window for ccbenchmark.
+
+    Provides the GUI for viewing and interacting with benchmark results.
+
+    Attributes:
+        benchmark_data (BenchmarkData): 
+            Benchmark data including the matrix, column names, and row names.
+        time_type (str): 
+            Type of timing data currently displayed (e.g., wall time, CPU time).
+        selected_indices (list[int]): 
+            Indices of benchmarks selected by the user.
+        selected_names (list[str]): 
+            Names of benchmarks selected by the user.
+
+        table (QTableView): 
+            Table widget displaying benchmark results.
+        tree (QTreeView): 
+            Tree widget for browsing benchmark categories.
+        toolbar (QToolBar): 
+            Toolbar containing GUI actions and controls.
+        selmodel (QItemSelectionModel): 
+            Selection model for managing selected indices.
+        splitter (QSplitter): 
+            Splits the window between the tree and the table.
+    """
     def __init__(self, benchmark_data: BenchmarkData):
         super().__init__()
+        assert len(benchmark_data.benchmark_names) != 0, f'no benchmark names!'
         self.benchmark_data = benchmark_data
         self.time_type = TimeType.REAL
 
         self.selected_indicies: list[int] = []
-        assert len(benchmark_data.benchmark_names) != 0, f'no benchmark names!'
         self.selected_names: list[str] = []
 
         self.table = self.init_table()
@@ -192,48 +242,18 @@ class MainWindow(QMainWindow):
                 if len(table_data) != 0 and j < len(table_data[0]) and i < len(table_data):
                     text = table_data[i][j]
                     assert type(text) is str, f'text is {type(text).__name__}, at table_data[{i}][{j}]'
-                    # assert len(columns_names) == len(table_data[0]), f'len({columns_names}) != len({table_data[0]})'
+                    assert len(columns_names) == len(table_data), f'len({len(columns_names)}) != len({len(table_data)})'
                     
                     item = QTableWidgetItem(text)
-                    
-                    red_color = QtGui.QColor(255, 85, 85)
-                    green_color = QtGui.QColor(0, 255, 128)
                     default_color = self.table.palette().color(QtGui.QPalette.Text)
+                    split = text.split(' ')
+                    if len(split) == 2:
+                        value = float(split[0])
+                    else:
+                        value = float('NaN')
+                    item_color = get_color(value, columns_names[i], default_color)
 
-                    def get_color() -> QtGui.QColor:
-                        assert i < len(columns_names), f'array: {columns_names} index: {i}'
-                        col_name = columns_names[i]
-                        text_split = text.split(' ')
-                        if len(text_split) == 0:
-                            return default_color
-                        try:
-                            val = float(text_split[0])
-                        except:
-                            return default_color
-                        if val != val:
-                            return default_color
-
-                        if 'Δ' in col_name:
-                            t = val / 20.0
-                            t = max(min(t, 1.0), -1.0)
-                            if t < 0.0:
-                                t = abs(t)
-                                selected_color = green_color
-                            else:
-                                selected_color = red_color
-                            return QtGui.QColor(
-                                int((1.0 - t)*default_color.red() + t*selected_color.red()),
-                                int((1.0 - t)*default_color.green() + t*selected_color.green()),
-                                int((1.0 - t)*default_color.blue() + t*selected_color.blue())
-                            )
-                        elif 'CV' in col_name:
-                            if val > 10.0:
-                                return red_color
-
-                        return default_color
-
-
-                    item.setForeground(QtGui.QBrush(get_color()))
+                    item.setForeground(QtGui.QBrush(item_color))
                     item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                     
                     self.table.setItem(j, i, item)
