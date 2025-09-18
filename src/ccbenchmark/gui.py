@@ -110,28 +110,69 @@ class Table(QTableWidget):
             matrix.append(row_text)
         return matrix
 
-def get_color(value: float, column_name: str, default_color: QtGui.QColor) -> QtGui.QColor:
-    red_color = QtGui.QColor(255, 85, 85)
-    green_color = QtGui.QColor(0, 255, 128)
+def lerp(t: float, a: float, b: float) -> float:
+    return (1.0 - t)*a + t*b
+
+def get_text_color(
+    value: float, 
+    column_name: str, 
+    default_color: QtGui.QColor,
+
+    peak_red_color=QtGui.QColor(255, 85, 85),
+    peak_green_color=QtGui.QColor(0, 255, 128),
+    peak_delta_value=20.0,
+    poor_cv_percentage_value=10.0,
+    delta_substr='Δ',
+    cv_substr='CV'
+) -> QtGui.QColor:
+    """Uses value and column name to get color of text.
+    
+    If value is NaN, get_color returns ```default_color```.
+    If the column has ```delta_substr``` in it, value is lerped between ```peak_red_color```, ```default_color``` and ```peak_green_color```. 
+    If the column has ```cv_substr``` in it, value is set to red if CV is greater than ```poor_cv_percentage_value```.
+    Otherwise, it returns ```default_color```.
+
+    Args:
+        value:
+            Benchmark value.
+        column_name:
+            Name of column.
+        default_color:
+            Default color of QT text, used when value is ok or is not colored.
+
+        peak_red_color:
+            Red color used for interpolation when value is considered bad.
+        peak_green_color:
+            Green color used for interpolation when value is considered good.
+        peak_delta_value:
+            Max magnitude of value when column is delta.
+        poor_cv_percentage_value:
+            What is considered a bad CV value.
+        delta_substr:
+            Substr that determines if a value is treated as a delta.
+        cv_substr:
+            Substr that determines if a value is CV.
+    Returns:
+    """
     if value != value:
         return default_color
 
-    if 'Δ' in column_name:
-        t = value / 20.0
+    if delta_substr in column_name:
+        t = value / peak_delta_value
         t = max(min(t, 1.0), -1.0)
         if t < 0.0:
             t = abs(t)
-            selected_color = green_color
+            selected_color = peak_green_color
         else:
-            selected_color = red_color
+            selected_color = peak_red_color
         return QtGui.QColor(
-            int((1.0 - t)*default_color.red() + t*selected_color.red()),
-            int((1.0 - t)*default_color.green() + t*selected_color.green()),
-            int((1.0 - t)*default_color.blue() + t*selected_color.blue())
+            int(lerp(t, default_color.red(),   selected_color.red())),
+            int(lerp(t, default_color.green(), selected_color.green())),
+            int(lerp(t, default_color.blue(),  selected_color.blue()))
         )
-    elif 'CV' in column_name:
-        if value > 10.0:
-            return red_color
+    elif cv_substr in column_name:
+        if value > poor_cv_percentage_value:
+            return peak_red_color
 
     return default_color
 
@@ -251,7 +292,7 @@ class MainWindow(QMainWindow):
                         value = float(split[0])
                     else:
                         value = float('NaN')
-                    item_color = get_color(value, columns_names[i], default_color)
+                    item_color = get_text_color(value, columns_names[i], default_color)
 
                     item.setForeground(QtGui.QBrush(item_color))
                     item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
