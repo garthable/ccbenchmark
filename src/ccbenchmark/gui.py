@@ -110,6 +110,13 @@ class Table(QTableWidget):
             matrix.append(row_text)
         return matrix
 
+def cell_text_to_float(text: str) -> float:
+    split = text.split(' ')
+    if len(split) == 2:
+        return float(split[0])
+    else:
+        return float('NaN')
+
 def lerp(t: float, a: float, b: float) -> float:
     return (1.0 - t)*a + t*b
 
@@ -222,7 +229,7 @@ class MainWindow(QMainWindow):
         self.table = self.init_table()
         self.tree = self.init_tree()
         self.toolbar = self.init_toolbar()
-        self.selmodel = self.init_selmodel()
+        self.selmodel = self.tree.selectionModel()
         
         self.selmodel.selectionChanged.connect(self.selection_change)
 
@@ -236,11 +243,22 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, self.set_split_sizes)
 
     def init_table(self) -> Table:
+        """Creates table, and then updates the table.
+        
+        Returns:
+            Table:
+                newly created Table.
+        """
         self.table = Table()
         self.modify_table()
         return self.table
 
     def init_toolbar(self) -> QToolBar:
+        """Creates toolbar, and then updates the toolbar.
+        Returns:
+            QToolBar:
+                newly created toolbar.
+        """
         self.toolbar = QToolBar('Main Toolbar')
         self.toolbar.setMovable(False)
         self.addToolBar(self.toolbar)
@@ -249,20 +267,21 @@ class MainWindow(QMainWindow):
         return self.toolbar
 
     def init_tree(self) -> QTreeWidget:
+        """Creates tree, and then updates the tree.
+        Returns:
+            QTreeWidget:
+                newly created tree.
+        """
         self.tree = QTreeWidget()
         self.tree.model().setHeaderData(0, QtCore.Qt.Horizontal, 'Benchmarks')
         self.tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
         data = self.benchmark_data.get_paths()
         self.build_tree(self.tree, data)
         return self.tree
-    
-    def init_selmodel(self) -> QtCore.QItemSelectionModel:
-        return self.tree.selectionModel()
 
-    def modify_table(self):
+    def _update_table_rows_and_cols(self) -> tuple[int, int]:
         columns_names = self.benchmark_data.get_columns(self.selected_indicies)
         row_names = self.benchmark_data.get_rows(self.selected_indicies)
-        table_data = self.benchmark_data.get_str_matrix(self.selected_indicies, self.time_type)
 
         min_column_count = 30
         min_row_count = 50
@@ -285,6 +304,20 @@ class MainWindow(QMainWindow):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Fixed)
         self.table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
 
+        return (column_count, row_count)
+
+    def _resize_columns(self):
+        default_width = self.table.horizontalHeader().defaultSectionSize()
+        self.table.resizeColumnsToContents()
+        self.table.horizontalHeader().setMinimumSectionSize(default_width)
+        self.preserve_max_vertical_header_width()
+
+    def modify_table(self):
+        columns_names = self.benchmark_data.get_columns(self.selected_indicies)
+        table_data = self.benchmark_data.get_str_matrix(self.selected_indicies, self.time_type)
+
+        column_count, row_count = self._update_table_rows_and_cols()
+
         for i in range(column_count):
             self.table.showColumn(column_count)
             for j in range(row_count):
@@ -295,27 +328,19 @@ class MainWindow(QMainWindow):
                     
                     item = QTableWidgetItem(text)
                     default_color = self.table.palette().color(QtGui.QPalette.Text)
-                    split = text.split(' ')
-                    if len(split) == 2:
-                        value = float(split[0])
-                    else:
-                        value = float('NaN')
+                    value = cell_text_to_float(text)
+
                     item_color = get_text_color(value, columns_names[i], default_color)
 
                     item.setForeground(QtGui.QBrush(item_color))
                     item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-                    
                     self.table.setItem(j, i, item)
                 else:
                     item = QTableWidgetItem('')
                     item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                     self.table.setItem(j, i, item)
 
-        default_width = self.table.horizontalHeader().defaultSectionSize()
-        self.table.resizeColumnsToContents()
-        self.table.horizontalHeader().setMinimumSectionSize(default_width)
-
-        self.preserve_max_vertical_header_width()
+        self._resize_columns()
         self.hide_empty_columns()
         self.hide_empty_rows()
 
