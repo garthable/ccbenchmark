@@ -203,6 +203,14 @@ class MainWindow(QMainWindow):
             Splits the window between the tree and the table.
     """
     def __init__(self, benchmark_data: BenchmarkData):
+        """Initializes GUI elements.
+            
+        Initializes table, treem toolbar, selmodel, and splitter.
+
+        Args:
+            benchmark_data:
+                Model with names of rows, name of columns, and data.
+        """
         super().__init__()
         assert len(benchmark_data.benchmark_names) != 0, f'no benchmark names!'
         self.benchmark_data = benchmark_data
