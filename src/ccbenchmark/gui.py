@@ -252,11 +252,6 @@ class Table(QTableWidget):
             data.append(data_row)
         return data
 
-    def export_to_csv(self):
-        file = QFileDialog(self)
-        data = get_csv(self.to_matrix())
-        file.saveFileContent(data, f'benchmark.csv')
-
 def cell_text_to_float(text: str) -> float:
     split = text.split(' ')
     if len(split) == 2:
@@ -333,6 +328,7 @@ def get_text_color(
 class Toolbar(QToolBar):
     def __init__(self, name: str, parent: QMainWindow, column_names: list[str], selected_indicies: list[int]):
         super().__init__(name)
+        self.time_type = TimeType.REAL
         self.setMovable(False)
         parent.addToolBar(self)
         self.modify_toolbar(column_names, selected_indicies, parent)
@@ -344,11 +340,11 @@ class Toolbar(QToolBar):
         def toggle_cpu_real_time():
             action: QAction = self.sender()
             if action.text() == 'Real Time':
-                parent.time_type = TimeType.REAL
+                self.time_type = TimeType.REAL
             elif action.text() == 'CPU Time':
-                parent.time_type = TimeType.CPU
+                self.time_type = TimeType.CPU
             
-            parent.table.modify_table(parent.benchmark_data, parent.selected_indicies, parent.time_type)
+            parent.table.modify_table(parent.benchmark_data, parent.tree.selected_indicies, self.time_type)
         
         def toggle_column():
             action: QAction = self.sender()
@@ -363,7 +359,7 @@ class Toolbar(QToolBar):
         for i, col in enumerate(columns):
             show_stats_menu.addAction(col, True, toggle_column, True, data={'column_index': i})
 
-        actions = ['Real Time', 'CPU Time'] if parent.time_type == TimeType.REAL else ['CPU Time', 'Real Time']
+        actions = ['Real Time', 'CPU Time'] if self.time_type == TimeType.REAL else ['CPU Time', 'Real Time']
 
         time_type_dropdown = DropdownSelect(self, parent)
         for action in actions:
@@ -375,8 +371,39 @@ class Toolbar(QToolBar):
 
         export_to_csv_button = QToolButton()
         export_to_csv_button.setText('CSV')
-        export_to_csv_button.clicked.connect(parent.table.export_to_csv)
+        export_to_csv_button.clicked.connect(parent.export_to_csv)
         self.addWidget(export_to_csv_button)
+
+class Tree(QTreeWidget):
+    def __init__(self, parent: 'MainWindow', paths: dict):
+        super().__init__()
+        self.model().setHeaderData(0, QtCore.Qt.Horizontal, 'Benchmarks')
+        self.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.build_tree(self, paths)
+
+        self.selected_indicies: list[int] = []
+        self.selected_names: list[str] = []
+
+        self.selmodel = self.selectionModel()
+        self.selmodel.selectionChanged.connect(parent.selection_change)
+
+    def build_tree(self, parent: QTreeWidget, data: dict):
+        for key, value in data.items():
+            item = QTreeWidgetItem(parent)
+            item.setText(0, key)
+            if isinstance(value, dict):
+                text = key
+                next_value = None
+                while len(value) == 1:
+                    next_key, next_value = next(iter(value.items()))
+                    if not isinstance(next_value, dict):
+                        break
+                    value = next_value
+                    text += '/' + next_key
+                item.setText(0, text)
+                self.build_tree(item, value)
+            elif isinstance(value, int):
+                item.setData(0, QtCore.Qt.UserRole, value)
 
 class MainWindow(QMainWindow):
     """Main application window for ccbenchmark.
@@ -416,17 +443,10 @@ class MainWindow(QMainWindow):
         super().__init__()
         assert len(benchmark_data.benchmark_names) != 0, f'no benchmark names!'
         self.benchmark_data = benchmark_data
-        self.time_type = TimeType.REAL
 
-        self.selected_indicies: list[int] = []
-        self.selected_names: list[str] = []
-
-        self.table = Table(self.benchmark_data, self.selected_indicies, self.time_type)
-        self.tree = self.init_tree()
-        self.toolbar = Toolbar('Main Toolbar', self, self.benchmark_data.get_columns(self.selected_indicies), self.selected_indicies)
-        self.selmodel = self.tree.selectionModel()
-        
-        self.selmodel.selectionChanged.connect(self.selection_change)
+        self.tree = Tree(self, self.benchmark_data.get_paths())
+        self.toolbar = Toolbar('Main Toolbar', self, self.benchmark_data.get_columns(self.tree.selected_indicies), self.tree.selected_indicies)
+        self.table = Table(self.benchmark_data, self.tree.selected_indicies, self.toolbar.time_type)
 
         self.splitter = QSplitter()
 
@@ -437,76 +457,50 @@ class MainWindow(QMainWindow):
 
         QTimer.singleShot(0, self.set_split_sizes)
 
-    def init_tree(self) -> QTreeWidget:
-        """Creates tree, and then updates the tree.
-        Returns:
-            QTreeWidget:
-                newly created tree.
-        """
-        self.tree = QTreeWidget()
-        self.tree.model().setHeaderData(0, QtCore.Qt.Horizontal, 'Benchmarks')
-        self.tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        data = self.benchmark_data.get_paths()
-        self.build_tree(self.tree, data)
-        return self.tree
-
     def change_parent_selected(self):
         action: QAction = self.sender()
         name = action.text()
         try:
-            index = self.selected_names.index(name)
+            index = self.tree.selected_names.index(name)
         except ValueError:
             return
-        self.selected_names.insert(0, self.selected_names.pop(index))
-        self.selected_indicies.insert(0, self.selected_indicies.pop(index))
+        self.tree.selected_names.insert(0, self.tree.selected_names.pop(index))
+        self.tree.selected_indicies.insert(0, self.tree.selected_indicies.pop(index))
 
-        self.table.modify_table(self.benchmark_data, self.selected_indicies, self.time_type)
-
-    def build_tree(self, parent: QTreeWidget, data: dict):
-        for key, value in data.items():
-            item = QTreeWidgetItem(parent)
-            item.setText(0, key)
-            if isinstance(value, dict):
-                text = key
-                next_value = None
-                while len(value) == 1:
-                    next_key, next_value = next(iter(value.items()))
-                    if not isinstance(next_value, dict):
-                        break
-                    value = next_value
-                    text += '/' + next_key
-                item.setText(0, text)
-                self.build_tree(item, value)
-            elif isinstance(value, int):
-                item.setData(0, QtCore.Qt.UserRole, value)
-
-    def selection_change(self, selected: QtCore.QItemSelection, deselected: QtCore.QItemSelection):
-        for index in selected.indexes():
-            item = self.tree.itemFromIndex(index)
-            column_index: int | None = item.data(0, QtCore.Qt.UserRole)
-            if column_index is not None:
-                self.selected_indicies.append(column_index)
-        for index in deselected.indexes():
-            item = self.tree.itemFromIndex(index)
-            column_index: int | None = item.data(0, QtCore.Qt.UserRole)
-            if column_index is not None:
-                self.selected_indicies.remove(column_index)
-
-        self.selected_names = [self.benchmark_data.benchmark_names[i] for i in self.selected_indicies]
-
-        if len(self.selected_indicies) == 0:
-            return
-
-        column_names = self.benchmark_data.get_columns(self.selected_indicies)
-
-        self.table.modify_table(self.benchmark_data, self.selected_indicies, self.time_type)
-        self.toolbar.modify_toolbar(column_names, self.selected_names, self)
+        self.table.modify_table(self.benchmark_data, self.tree.selected_indicies, self.toolbar.time_type)
 
     def set_split_sizes(self):
         total = self.splitter.width()
         left = int(total * 0.3)
         right = total - left
         self.splitter.setSizes([left, right])
+
+    def selection_change(self, selected: QtCore.QItemSelection, deselected: QtCore.QItemSelection):
+        for index in selected.indexes():
+            item = self.tree.itemFromIndex(index)
+            column_index: int | None = item.data(0, QtCore.Qt.UserRole)
+            if column_index is not None:
+                self.tree.selected_indicies.append(column_index)
+        for index in deselected.indexes():
+            item = self.tree.itemFromIndex(index)
+            column_index: int | None = item.data(0, QtCore.Qt.UserRole)
+            if column_index is not None:
+                self.tree.selected_indicies.remove(column_index)
+
+        self.tree.selected_names = [self.benchmark_data.benchmark_names[i] for i in self.tree.selected_indicies]
+
+        if len(self.tree.selected_indicies) == 0:
+            return
+
+        column_names = self.benchmark_data.get_columns(self.tree.selected_indicies)
+
+        self.table.modify_table(self.benchmark_data, self.tree.selected_indicies, self.toolbar.time_type)
+        self.toolbar.modify_toolbar(column_names, self.tree.selected_names, self)
+
+    def export_to_csv(self):
+        file = QFileDialog(self)
+        data = get_csv(self.table.to_matrix())
+        file.saveFileContent(data, f'benchmark.csv')
 
 def show_gui(benchmark_data: BenchmarkData) -> int:
     """Display the benchmark comparison GUI.
