@@ -76,14 +76,69 @@ def get_csv(matrix: list[list[str | float]], deliminator=b',') -> bytes:
     return data
 
 class Table(QTableWidget):
+    def __init__(self, benchmark_data: BenchmarkData, selected_indicies: list[int], time_type: TimeType):
+        super().__init__()
+        self.modify_table(benchmark_data, selected_indicies, time_type)
+
     def keyPressEvent(self, event):
         if event.matches(QtGui.QKeySequence.Copy):
             self.copy()
         else:
             super().keyPressEvent(event)
+
     def copy(self) -> None:
         data = get_csv(self.get_selected_matrix(), deliminator='\t').decode()
         QApplication.clipboard().setText(data)
+
+    def preserve_max_vertical_header_width(self):
+        vertical_header = self.verticalHeader()
+        font_metrics = QtGui.QFontMetrics(vertical_header.font())
+
+        max_label_width = 0
+        for row_index in range(self.rowCount()):
+            item = self.verticalHeaderItem(row_index)
+            if item is None:
+                continue
+            width = font_metrics.width(item.text())
+            max_label_width = max(max_label_width, width)
+        
+        self.verticalHeader().setMinimumWidth(max_label_width)
+
+    def hide_empty_columns(self) -> int:
+        for col_index in range(self.columnCount()):
+            toggle_row = False
+            for row_index in range(self.rowCount()):
+                item = self.item(row_index, col_index)
+                if item is None:
+                    continue
+                text = item.text().strip()
+                if text == 'N/A':
+                    toggle_row = True
+                elif text != '':
+                    toggle_row = False
+                    break
+            if toggle_row:
+                self.hideColumn(col_index)
+            else:
+                self.showColumn(col_index)
+    
+    def hide_empty_rows(self):
+        for row_index in range(self.rowCount()):
+            toggle_row = False
+            for col_index in range(self.columnCount()):
+                item = self.item(row_index, col_index)
+                if item is None:
+                    continue
+                text = item.text().strip()
+                if text == 'N/A':
+                    toggle_row = True
+                elif text != '':
+                    toggle_row = False
+                    break
+            if toggle_row:
+                self.hideRow(row_index)
+            else:
+                self.showRow(row_index)
 
     def get_selected_matrix(self) -> list[list[str | float]]:
         selected_ranges = self.selectedRanges()
@@ -109,6 +164,98 @@ class Table(QTableWidget):
                 row_text.append(item.text())
             matrix.append(row_text)
         return matrix
+    
+    def _update_table_rows_and_cols(self, benchmark_data: BenchmarkData, selected_indicies: list[int], min_column_count=30, min_row_count=50) -> tuple[int, int]:
+        columns_names = benchmark_data.get_columns(selected_indicies)
+        row_names = benchmark_data.get_rows(selected_indicies)
+
+        input_column_count = len(columns_names)
+        input_row_count = len(row_names)
+
+        column_count = max(input_column_count, min_column_count)
+        row_count = max(input_row_count, min_row_count)
+
+        additional_column_names = [''] * max(min_column_count - input_column_count, 0)
+        additional_row_names = [''] * max(min_row_count - input_row_count, 0)
+
+        self.setColumnCount(column_count)
+        self.setRowCount(row_count)
+        
+        self.setHorizontalHeaderLabels(columns_names + additional_column_names)
+        self.setVerticalHeaderLabels(row_names + additional_row_names)
+
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        self.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+
+        return (column_count, row_count)
+
+    def _resize_columns(self):
+        default_width = self.horizontalHeader().defaultSectionSize()
+        self.resizeColumnsToContents()
+        self.horizontalHeader().setMinimumSectionSize(default_width)
+        self.preserve_max_vertical_header_width()
+
+    def _set_item(self, text: str, item_color: QtGui.QColor, row: int, column: int):
+        item = QTableWidgetItem(text)
+        item.setForeground(QtGui.QBrush(item_color))
+        item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+        self.setItem(row, column, item)
+
+    def modify_table(self, benchmark_data: BenchmarkData, selected_indicies: list[int], time_type: TimeType):
+        columns_names = benchmark_data.get_columns(selected_indicies)
+        table_data = benchmark_data.get_str_matrix(selected_indicies, time_type)
+        column_count, row_count = self._update_table_rows_and_cols(benchmark_data, selected_indicies, time_type)
+        default_color = self.palette().color(QtGui.QPalette.Text)
+
+        for i in range(column_count):
+            self.showColumn(column_count)
+            for j in range(row_count):
+                if len(table_data) != 0 and j < len(table_data[0]) and i < len(table_data):
+                    text = table_data[i][j]
+                    assert type(text) is str, f'text is {type(text).__name__}, at table_data[{i}][{j}]'
+                    assert len(columns_names) == len(table_data), f'len({len(columns_names)}) != len({len(table_data)})'
+                    
+                    value = cell_text_to_float(text)
+                    item_color = get_text_color(value, columns_names[i], default_color)
+                    self._set_item(text, item_color, j, i)
+                else:
+                    self._set_item('', default_color, j, i)
+
+        self._resize_columns()
+        self.hide_empty_columns()
+        self.hide_empty_rows()
+
+    def to_matrix(self) -> list[list[str | float]]:
+        data = []
+        data_row = ['Label']
+        for col in range(self.columnCount()):
+            text = self.horizontalHeaderItem(col).text()
+            if text == '':
+                continue
+            data_row.append(text)
+        data.append(data_row)
+        for row in range(self.rowCount()):
+            if self.isRowHidden(row):
+                continue
+            header = self.verticalHeaderItem(row).text()
+            if header == '':
+                continue
+            data_row = [header]
+            for col in range(self.columnCount()):
+                if self.isColumnHidden(col):
+                    continue
+                item = self.item(row, col)
+                if item is None or item.text().strip() == '':
+                    continue
+                data_row.append(item.text())
+
+            data.append(data_row)
+        return data
+
+    def export_to_csv(self):
+        file = QFileDialog(self)
+        data = get_csv(self.to_matrix())
+        file.saveFileContent(data, f'benchmark.csv')
 
 def cell_text_to_float(text: str) -> float:
     split = text.split(' ')
@@ -226,7 +373,7 @@ class MainWindow(QMainWindow):
         self.selected_indicies: list[int] = []
         self.selected_names: list[str] = []
 
-        self.table = self.init_table()
+        self.table = Table(self.benchmark_data, self.selected_indicies, self.time_type)
         self.tree = self.init_tree()
         self.toolbar = self.init_toolbar()
         self.selmodel = self.tree.selectionModel()
@@ -241,17 +388,6 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.splitter)
 
         QTimer.singleShot(0, self.set_split_sizes)
-
-    def init_table(self) -> Table:
-        """Creates table, and then updates the table.
-        
-        Returns:
-            Table:
-                newly created Table.
-        """
-        self.table = Table()
-        self.modify_table()
-        return self.table
 
     def init_toolbar(self) -> QToolBar:
         """Creates toolbar, and then updates the toolbar.
@@ -279,153 +415,6 @@ class MainWindow(QMainWindow):
         self.build_tree(self.tree, data)
         return self.tree
 
-    def _update_table_rows_and_cols(self) -> tuple[int, int]:
-        columns_names = self.benchmark_data.get_columns(self.selected_indicies)
-        row_names = self.benchmark_data.get_rows(self.selected_indicies)
-
-        min_column_count = 30
-        min_row_count = 50
-
-        input_column_count = len(columns_names)
-        input_row_count = len(row_names)
-
-        column_count = max(input_column_count, min_column_count)
-        row_count = max(input_row_count, min_row_count)
-
-        additional_column_names = [''] * max(min_column_count - input_column_count, 0)
-        additional_row_names = [''] * max(min_row_count - input_row_count, 0)
-
-        self.table.setColumnCount(column_count)
-        self.table.setRowCount(row_count)
-        
-        self.table.setHorizontalHeaderLabels(columns_names + additional_column_names)
-        self.table.setVerticalHeaderLabels(row_names + additional_row_names)
-
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Fixed)
-        self.table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
-
-        return (column_count, row_count)
-
-    def _resize_columns(self):
-        default_width = self.table.horizontalHeader().defaultSectionSize()
-        self.table.resizeColumnsToContents()
-        self.table.horizontalHeader().setMinimumSectionSize(default_width)
-        self.preserve_max_vertical_header_width()
-
-    def modify_table(self):
-        columns_names = self.benchmark_data.get_columns(self.selected_indicies)
-        table_data = self.benchmark_data.get_str_matrix(self.selected_indicies, self.time_type)
-
-        column_count, row_count = self._update_table_rows_and_cols()
-
-        for i in range(column_count):
-            self.table.showColumn(column_count)
-            for j in range(row_count):
-                if len(table_data) != 0 and j < len(table_data[0]) and i < len(table_data):
-                    text = table_data[i][j]
-                    assert type(text) is str, f'text is {type(text).__name__}, at table_data[{i}][{j}]'
-                    assert len(columns_names) == len(table_data), f'len({len(columns_names)}) != len({len(table_data)})'
-                    
-                    item = QTableWidgetItem(text)
-                    default_color = self.table.palette().color(QtGui.QPalette.Text)
-                    value = cell_text_to_float(text)
-
-                    item_color = get_text_color(value, columns_names[i], default_color)
-
-                    item.setForeground(QtGui.QBrush(item_color))
-                    item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-                    self.table.setItem(j, i, item)
-                else:
-                    item = QTableWidgetItem('')
-                    item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-                    self.table.setItem(j, i, item)
-
-        self._resize_columns()
-        self.hide_empty_columns()
-        self.hide_empty_rows()
-
-    def preserve_max_vertical_header_width(self):
-        vertical_header = self.table.verticalHeader()
-        font_metrics = QtGui.QFontMetrics(vertical_header.font())
-
-        max_label_width = 0
-        for row_index in range(self.table.rowCount()):
-            item = self.table.verticalHeaderItem(row_index)
-            if item is None:
-                continue
-            width = font_metrics.width(item.text())
-            max_label_width = max(max_label_width, width)
-        
-        self.table.verticalHeader().setMinimumWidth(max_label_width)
-
-    def hide_empty_columns(self) -> int:
-        for col_index in range(self.table.columnCount()):
-            toggle_row = False
-            for row_index in range(self.table.rowCount()):
-                item = self.table.item(row_index, col_index)
-                if item is None:
-                    continue
-                text = item.text().strip()
-                if text == 'N/A':
-                    toggle_row = True
-                elif text != '':
-                    toggle_row = False
-                    break
-            if toggle_row:
-                self.table.hideColumn(col_index)
-            else:
-                self.table.showColumn(col_index)
-    
-    def hide_empty_rows(self):
-        for row_index in range(self.table.rowCount()):
-            toggle_row = False
-            for col_index in range(self.table.columnCount()):
-                item = self.table.item(row_index, col_index)
-                if item is None:
-                    continue
-                text = item.text().strip()
-                if text == 'N/A':
-                    toggle_row = True
-                elif text != '':
-                    toggle_row = False
-                    break
-            if toggle_row:
-                self.table.hideRow(row_index)
-            else:
-                self.table.showRow(row_index)
-
-    def to_matrix(self) -> list[list[str | float]]:
-        data = []
-        data_row = ['Label']
-        for col in range(self.table.columnCount()):
-            text = self.table.horizontalHeaderItem(col).text()
-            if text == '':
-                continue
-            data_row.append(text)
-        data.append(data_row)
-        for row in range(self.table.rowCount()):
-            if self.table.isRowHidden(row):
-                continue
-            header = self.table.verticalHeaderItem(row).text()
-            if header == '':
-                continue
-            data_row = [header]
-            for col in range(self.table.columnCount()):
-                if self.table.isColumnHidden(col):
-                    continue
-                item = self.table.item(row, col)
-                if item is None or item.text().strip() == '':
-                    continue
-                data_row.append(item.text())
-
-            data.append(data_row)
-        return data
-
-    def export_to_csv(self):
-        file = QFileDialog(self)
-        data = get_csv(self.to_matrix())
-        file.saveFileContent(data, f'benchmark.csv')
-
     def modify_toolbar(self, columns: list[str], selected_benchmarks: list[str]):
         self.toolbar.clear()
         show_stats_menu = DropdownChecks('Shown Stats', self.toolbar, self)
@@ -437,7 +426,7 @@ class MainWindow(QMainWindow):
             elif action.text() == 'CPU Time':
                 self.time_type = TimeType.CPU
             
-            self.modify_table()
+            self.table.modify_table(self.benchmark_data, self.selected_indicies, self.time_type)
         
         def toggle_column():
             action: QAction = self.sender()
@@ -464,7 +453,7 @@ class MainWindow(QMainWindow):
 
         export_to_csv_button = QToolButton()
         export_to_csv_button.setText('CSV')
-        export_to_csv_button.clicked.connect(self.export_to_csv)
+        export_to_csv_button.clicked.connect(self.table.export_to_csv)
         self.toolbar.addWidget(export_to_csv_button)
 
     def change_parent_selected(self):
@@ -477,7 +466,7 @@ class MainWindow(QMainWindow):
         self.selected_names.insert(0, self.selected_names.pop(index))
         self.selected_indicies.insert(0, self.selected_indicies.pop(index))
 
-        self.modify_table()
+        self.table.modify_table(self.benchmark_data, self.selected_indicies, self.time_type)
 
     def build_tree(self, parent: QTreeWidget, data: dict):
         for key, value in data.items():
@@ -516,7 +505,7 @@ class MainWindow(QMainWindow):
 
         column_names = self.benchmark_data.get_columns(self.selected_indicies)
 
-        self.modify_table()
+        self.table.modify_table(self.benchmark_data, self.selected_indicies, self.time_type)
         self.modify_toolbar(column_names, self.selected_names)
 
     def set_split_sizes(self):
