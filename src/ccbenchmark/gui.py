@@ -330,6 +330,54 @@ def get_text_color(
 
     return default_color
 
+class Toolbar(QToolBar):
+    def __init__(self, name: str, parent: QMainWindow, column_names: list[str], selected_indicies: list[int]):
+        super().__init__(name)
+        self.setMovable(False)
+        parent.addToolBar(self)
+        self.modify_toolbar(column_names, selected_indicies, parent)
+
+    def modify_toolbar(self, columns: list[str], selected_benchmarks: list[str], parent: 'MainWindow'):
+        self.clear()
+        show_stats_menu = DropdownChecks('Shown Stats', self, parent)
+
+        def toggle_cpu_real_time():
+            action: QAction = self.sender()
+            if action.text() == 'Real Time':
+                parent.time_type = TimeType.REAL
+            elif action.text() == 'CPU Time':
+                parent.time_type = TimeType.CPU
+            
+            parent.table.modify_table(parent.benchmark_data, parent.selected_indicies, parent.time_type)
+        
+        def toggle_column():
+            action: QAction = self.sender()
+            data: dict = action.data()
+            i = data.get('column_index')
+            if i is not None:
+                if not parent.table.isColumnHidden(i):
+                    parent.table.hideColumn(i)
+                else:
+                    parent.table.showColumn(i)
+
+        for i, col in enumerate(columns):
+            show_stats_menu.addAction(col, True, toggle_column, True, data={'column_index': i})
+
+        actions = ['Real Time', 'CPU Time'] if parent.time_type == TimeType.REAL else ['CPU Time', 'Real Time']
+
+        time_type_dropdown = DropdownSelect(self, parent)
+        for action in actions:
+            time_type_dropdown.addAction(action, toggle_cpu_real_time)
+        
+        main_benchmark_menu = DropdownSelect(self, parent)
+        for selected_benchmark in selected_benchmarks:
+            main_benchmark_menu.addAction(selected_benchmark, parent.change_parent_selected)
+
+        export_to_csv_button = QToolButton()
+        export_to_csv_button.setText('CSV')
+        export_to_csv_button.clicked.connect(parent.table.export_to_csv)
+        self.addWidget(export_to_csv_button)
+
 class MainWindow(QMainWindow):
     """Main application window for ccbenchmark.
 
@@ -375,7 +423,7 @@ class MainWindow(QMainWindow):
 
         self.table = Table(self.benchmark_data, self.selected_indicies, self.time_type)
         self.tree = self.init_tree()
-        self.toolbar = self.init_toolbar()
+        self.toolbar = Toolbar('Main Toolbar', self, self.benchmark_data.get_columns(self.selected_indicies), self.selected_indicies)
         self.selmodel = self.tree.selectionModel()
         
         self.selmodel.selectionChanged.connect(self.selection_change)
@@ -389,19 +437,6 @@ class MainWindow(QMainWindow):
 
         QTimer.singleShot(0, self.set_split_sizes)
 
-    def init_toolbar(self) -> QToolBar:
-        """Creates toolbar, and then updates the toolbar.
-        Returns:
-            QToolBar:
-                newly created toolbar.
-        """
-        self.toolbar = QToolBar('Main Toolbar')
-        self.toolbar.setMovable(False)
-        self.addToolBar(self.toolbar)
-        column_names = self.benchmark_data.get_columns(self.selected_indicies)
-        self.modify_toolbar(column_names, self.selected_names)
-        return self.toolbar
-
     def init_tree(self) -> QTreeWidget:
         """Creates tree, and then updates the tree.
         Returns:
@@ -414,47 +449,6 @@ class MainWindow(QMainWindow):
         data = self.benchmark_data.get_paths()
         self.build_tree(self.tree, data)
         return self.tree
-
-    def modify_toolbar(self, columns: list[str], selected_benchmarks: list[str]):
-        self.toolbar.clear()
-        show_stats_menu = DropdownChecks('Shown Stats', self.toolbar, self)
-
-        def toggle_cpu_real_time():
-            action: QAction = self.sender()
-            if action.text() == 'Real Time':
-                self.time_type = TimeType.REAL
-            elif action.text() == 'CPU Time':
-                self.time_type = TimeType.CPU
-            
-            self.table.modify_table(self.benchmark_data, self.selected_indicies, self.time_type)
-        
-        def toggle_column():
-            action: QAction = self.sender()
-            data: dict = action.data()
-            i = data.get('column_index')
-            if i is not None:
-                if not self.table.isColumnHidden(i):
-                    self.table.hideColumn(i)
-                else:
-                    self.table.showColumn(i)
-
-        for i, col in enumerate(columns):
-            show_stats_menu.addAction(col, True, toggle_column, True, data={'column_index': i})
-
-        actions = ['Real Time', 'CPU Time'] if self.time_type == TimeType.REAL else ['CPU Time', 'Real Time']
-
-        time_type_dropdown = DropdownSelect(self.toolbar, self)
-        for action in actions:
-            time_type_dropdown.addAction(action, toggle_cpu_real_time)
-        
-        main_benchmark_menu = DropdownSelect(self.toolbar, self)
-        for selected_benchmark in selected_benchmarks:
-            main_benchmark_menu.addAction(selected_benchmark, self.change_parent_selected)
-
-        export_to_csv_button = QToolButton()
-        export_to_csv_button.setText('CSV')
-        export_to_csv_button.clicked.connect(self.table.export_to_csv)
-        self.toolbar.addWidget(export_to_csv_button)
 
     def change_parent_selected(self):
         action: QAction = self.sender()
@@ -506,7 +500,7 @@ class MainWindow(QMainWindow):
         column_names = self.benchmark_data.get_columns(self.selected_indicies)
 
         self.table.modify_table(self.benchmark_data, self.selected_indicies, self.time_type)
-        self.modify_toolbar(column_names, self.selected_names)
+        self.toolbar.modify_toolbar(column_names, self.selected_names, self)
 
     def set_split_sizes(self):
         total = self.splitter.width()
