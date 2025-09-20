@@ -6,6 +6,7 @@ import sys
 from ccbenchmark.benchmark_data import BenchmarkData, TimeType
 
 class StickyMenu(QMenu):
+    """Menu that does not go away when option is clicked within."""
     def mouseReleaseEvent(self, event):
         action = self.actionAt(event.pos())
         if action and action.isCheckable():
@@ -14,6 +15,7 @@ class StickyMenu(QMenu):
             super().mouseReleaseEvent(event)
 
 class DropdownChecks(QToolButton):
+    """Buttons that can be checked."""
     def __init__(self, text: str, toolbar: QToolBar, main_window: QMainWindow):
         super().__init__()
         self.setMenu(StickyMenu())
@@ -75,7 +77,7 @@ def get_csv(matrix: list[list[str | float]], deliminator=b',') -> bytes:
         data += f'{data_row}'.encode() if data == b'' else f'\n{data_row}'.encode()
     return data
 
-class Table(QTableWidget):
+class BenchmarkDataTableView(QTableWidget):
     def __init__(self, benchmark_data: BenchmarkData, selected_indicies: list[int], time_type: TimeType):
         super().__init__()
         self.modify_table(benchmark_data, selected_indicies, time_type)
@@ -325,7 +327,7 @@ def get_text_color(
 
     return default_color
 
-class Toolbar(QToolBar):
+class ToolbarView(QToolBar):
     def __init__(self, name: str, parent: QMainWindow, column_names: list[str], selected_indicies: list[int]):
         super().__init__(name)
         self.time_type = TimeType.REAL
@@ -374,7 +376,7 @@ class Toolbar(QToolBar):
         export_to_csv_button.clicked.connect(parent.export_to_csv)
         self.addWidget(export_to_csv_button)
 
-class Tree(QTreeWidget):
+class ProfileSelectionTreeView(QTreeWidget):
     def __init__(self, parent: 'MainWindow', paths: dict):
         super().__init__()
         self.model().setHeaderData(0, QtCore.Qt.Horizontal, 'Benchmarks')
@@ -444,9 +446,9 @@ class MainWindow(QMainWindow):
         assert len(benchmark_data.benchmark_names) != 0, f'no benchmark names!'
         self.benchmark_data = benchmark_data
 
-        self.tree = Tree(self, self.benchmark_data.get_paths())
-        self.toolbar = Toolbar('Main Toolbar', self, self.benchmark_data.get_columns(self.tree.selected_indicies), self.tree.selected_indicies)
-        self.table = Table(self.benchmark_data, self.tree.selected_indicies, self.toolbar.time_type)
+        self.profile_selection_tree = ProfileSelectionTreeView(self, self.benchmark_data.get_paths())
+        self.toolbar = ToolbarView('Main Toolbar', self, self.benchmark_data.get_columns(self.tree.selected_indicies), self.tree.selected_indicies)
+        self.benchmark_data_table = BenchmarkDataTableView(self.benchmark_data, self.tree.selected_indicies, self.toolbar.time_type)
 
         self.splitter = QSplitter()
 
